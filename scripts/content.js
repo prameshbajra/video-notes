@@ -1,14 +1,42 @@
-const BAR_CONTAINER_ID = 'video-notes-container';
-const BAR_ID = 'video-notes-bar';
-const BAR_FILL_ID = 'video-notes-bar-fill';
+const CONTAINER_ID = 'video-notes-container';
+const TRACK_ID = 'video-notes-track';
 const TOOLTIP_ID = 'video-notes-tooltip';
-const NOTE_SUBMIT_EVENT = 'video-notes:note-submitted';
+const PREVIEW_TOOLTIP_ID = 'video-notes-preview';
+const NOTES_STORAGE_KEY = 'videoNotes:notes';
 const OBSERVER_OPTIONS = { childList: true, subtree: true };
+const VIDEO_EVENTS = ['loadedmetadata', 'durationchange'];
+const TOOLTIP_OFFSET = 12;
+const PREVIEW_OFFSET = 8;
 
-const progressState = {
-    animationId: null,
-    video: null
+const state = {
+    video: null,
+    videoId: null,
+    notes: [],
+    tooltipMode: null,
+    activeNoteId: null,
+    pendingTimestamp: null,
+    tooltipAnchor: null,
+    previewAnchor: null,
+    previewNoteId: null
 };
+
+const ui = {
+    container: null,
+    addButton: null,
+    track: null,
+    tooltip: null,
+    textarea: null,
+    cancelButton: null,
+    saveButton: null,
+    deleteButton: null,
+    heading: null,
+    timestampLabel: null,
+    emptyState: null,
+    previewTooltip: null,
+    previewText: null
+};
+
+let globalListenersAttached = false;
 
 const applyStyles = (element, styles) => {
     Object.assign(element.style, styles);
@@ -25,9 +53,11 @@ const createButton = (label, styles) => {
 const createTooltip = () => {
     const tooltip = document.createElement('div');
     tooltip.id = TOOLTIP_ID;
+    tooltip.setAttribute('role', 'dialog');
+    tooltip.setAttribute('aria-modal', 'false');
     applyStyles(tooltip, {
         position: 'absolute',
-        top: 'calc(100% + 12px)',
+        top: '0',
         left: '0',
         display: 'none',
         flexDirection: 'column',
@@ -43,10 +73,15 @@ const createTooltip = () => {
     });
 
     const heading = document.createElement('span');
-    heading.textContent = 'Add a note';
     applyStyles(heading, {
         fontSize: '16px',
         fontWeight: '500'
+    });
+
+    const timestampLabel = document.createElement('span');
+    applyStyles(timestampLabel, {
+        fontSize: '12px',
+        color: '#aaaaaa'
     });
 
     const textarea = document.createElement('textarea');
@@ -68,8 +103,32 @@ const createTooltip = () => {
     const actions = document.createElement('div');
     applyStyles(actions, {
         display: 'flex',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '12px'
+    });
+
+    const leftGroup = document.createElement('div');
+    applyStyles(leftGroup, {
+        display: 'flex',
         gap: '8px'
+    });
+
+    const rightGroup = document.createElement('div');
+    applyStyles(rightGroup, {
+        display: 'flex',
+        gap: '8px'
+    });
+
+    const deleteButton = createButton('Delete', {
+        background: 'transparent',
+        color: '#ff7b7b',
+        border: '1px solid rgba(255, 123, 123, 0.6)',
+        padding: '8px 12px',
+        borderRadius: '999px',
+        fontSize: '13px',
+        cursor: 'pointer',
+        display: 'none'
     });
 
     const cancelButton = createButton('Cancel', {
@@ -81,7 +140,7 @@ const createTooltip = () => {
         cursor: 'pointer'
     });
 
-    const okButton = createButton('OK', {
+    const saveButton = createButton('Save', {
         backgroundColor: '#3ea6ff',
         color: '#000000',
         border: 'none',
@@ -92,187 +151,767 @@ const createTooltip = () => {
         cursor: 'pointer'
     });
 
-    actions.appendChild(cancelButton);
-    actions.appendChild(okButton);
+    leftGroup.appendChild(deleteButton);
+    rightGroup.appendChild(cancelButton);
+    rightGroup.appendChild(saveButton);
+    actions.appendChild(leftGroup);
+    actions.appendChild(rightGroup);
 
     tooltip.appendChild(heading);
+    tooltip.appendChild(timestampLabel);
     tooltip.appendChild(textarea);
     tooltip.appendChild(actions);
 
-    return { tooltip, textarea, cancelButton, okButton };
+    return {
+        tooltip,
+        heading,
+        timestampLabel,
+        textarea,
+        deleteButton,
+        cancelButton,
+        saveButton
+    };
 };
 
-const createBarElement = () => {
+const createPreviewTooltip = () => {
+    const wrapper = document.createElement('div');
+    wrapper.id = PREVIEW_TOOLTIP_ID;
+    wrapper.setAttribute('aria-hidden', 'true');
+    applyStyles(wrapper, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        display: 'none',
+        maxWidth: '240px',
+        pointerEvents: 'none',
+        zIndex: '4999'
+    });
+
+    const bubble = document.createElement('div');
+    applyStyles(bubble, {
+        backgroundColor: 'rgba(32, 33, 36, 0.95)',
+        color: '#ffffff',
+        padding: '10px 12px',
+        borderRadius: '10px',
+        fontSize: '13px',
+        lineHeight: '1.4',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        pointerEvents: 'none',
+        whiteSpace: 'pre-line',
+        wordBreak: 'break-word'
+    });
+
+    wrapper.appendChild(bubble);
+
+    return { previewTooltip: wrapper, previewText: bubble };
+};
+
+const createContainer = () => {
     const container = document.createElement('div');
-    container.id = BAR_CONTAINER_ID;
+    container.id = CONTAINER_ID;
     applyStyles(container, {
         position: 'relative',
         margin: '16px 0',
-        padding: '8px 0',
+        padding: '8px 0 24px',
         display: 'flex',
         flexDirection: 'column',
         gap: '12px'
     });
 
-    const header = document.createElement('h2');
-    header.textContent = 'Video Notes';
+    const header = document.createElement('div');
     applyStyles(header, {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px'
+    });
+
+    const title = document.createElement('h2');
+    title.textContent = 'Video Notes';
+    applyStyles(title, {
         margin: '0',
         color: '#f1f1f1',
         fontSize: '20px',
         fontWeight: '600'
     });
 
-    const bar = document.createElement('div');
-    bar.id = BAR_ID;
-    bar.setAttribute('role', 'button');
-    bar.setAttribute('aria-controls', TOOLTIP_ID);
-    bar.setAttribute('aria-expanded', 'false');
-    bar.setAttribute('aria-label', 'Add a video note');
-    bar.tabIndex = 0;
-    applyStyles(bar, {
-        height: '8px',
-        borderRadius: '999px',
-        backgroundColor: '#3f3f3f',
+    const addButton = createButton('+', {
+        width: '28px',
+        height: '28px',
+        borderRadius: '50%',
+        border: 'none',
+        backgroundColor: '#3ea6ff',
+        color: '#000000',
+        fontSize: '20px',
+        fontWeight: '600',
+        lineHeight: '1',
         cursor: 'pointer',
-        overflow: 'hidden',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-        transition: 'transform 120ms ease'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0'
+    });
+    addButton.id = 'video-notes-add-button';
+    addButton.setAttribute('aria-label', 'Add a note for the current moment');
+
+    header.appendChild(title);
+    header.appendChild(addButton);
+
+    const track = document.createElement('div');
+    track.id = TRACK_ID;
+    applyStyles(track, {
+        position: 'relative',
+        height: '36px',
+        borderRadius: '18px',
+        backgroundColor: 'rgba(255, 255, 255, 0.06)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 12px'
     });
 
-    const fill = document.createElement('div');
-    fill.id = BAR_FILL_ID;
-    applyStyles(fill, {
-        height: '100%',
-        width: '100%',
-        background: 'linear-gradient(90deg, #3ea6ff 0%, #00ffc6 100%)',
-        transformOrigin: 'left center',
-        transform: 'scaleX(0)'
+    const trackBaseline = document.createElement('div');
+    applyStyles(trackBaseline, {
+        position: 'absolute',
+        top: '50%',
+        left: '12px',
+        right: '12px',
+        height: '2px',
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        transform: 'translateY(-50%)'
     });
 
-    bar.appendChild(fill);
+    track.appendChild(trackBaseline);
 
-    const { tooltip, textarea, cancelButton, okButton } = createTooltip();
-
-    const toggleTooltip = (shouldShow) => {
-        tooltip.style.display = shouldShow ? 'flex' : 'none';
-        bar.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
-        if (shouldShow) {
-            window.requestAnimationFrame(() => textarea.focus());
-        }
-    };
-
-    const handleToggle = (event) => {
-        if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') {
-            return;
-        }
-
-        event.preventDefault();
-        const isVisible = tooltip.style.display === 'flex';
-        toggleTooltip(!isVisible);
-    };
-
-    bar.addEventListener('click', handleToggle);
-    bar.addEventListener('keydown', handleToggle);
-
-    cancelButton.addEventListener('click', () => {
-        textarea.value = '';
-        toggleTooltip(false);
+    const emptyState = document.createElement('span');
+    emptyState.textContent = 'No notes yet. Click + to capture a thought.';
+    applyStyles(emptyState, {
+        color: '#aaaaaa',
+        fontSize: '13px'
     });
 
-    okButton.addEventListener('click', () => {
-        const note = textarea.value.trim();
-        window.dispatchEvent(new CustomEvent(NOTE_SUBMIT_EVENT, { detail: { note } }));
-        toggleTooltip(false);
-    });
-
-    tooltip.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            toggleTooltip(false);
-        }
-    });
+    const {
+        tooltip,
+        heading,
+        timestampLabel,
+        textarea,
+        deleteButton,
+        cancelButton,
+        saveButton
+    } = createTooltip();
+    const { previewTooltip, previewText } = createPreviewTooltip();
 
     container.appendChild(header);
-    container.appendChild(bar);
+    container.appendChild(track);
+    container.appendChild(emptyState);
     container.appendChild(tooltip);
+    container.appendChild(previewTooltip);
 
-    return container;
+    return {
+        container,
+        addButton,
+        track,
+        emptyState,
+        tooltip,
+        heading,
+        timestampLabel,
+        textarea,
+        deleteButton,
+        cancelButton,
+        saveButton,
+        previewTooltip,
+        previewText
+    };
 };
 
 const getVideoElement = () => document.querySelector('video.html5-main-video');
 
-const updateProgressFill = (video, fill) => {
-    if (!video || !fill || !Number.isFinite(video.duration) || video.duration <= 0) {
-        fill.style.transform = 'scaleX(0)';
-        return;
+const formatTimestamp = (value) => {
+    if (!Number.isFinite(value) || value < 0) {
+        return '00:00';
     }
 
-    const progress = Math.min(Math.max(video.currentTime / video.duration, 0), 1);
-    fill.style.transform = `scaleX(${progress})`;
+    const totalSeconds = Math.floor(value);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const minutePart = minutes.toString().padStart(2, '0');
+    const secondPart = seconds.toString().padStart(2, '0');
+
+    if (hours > 0) {
+        return `${hours.toString().padStart(2, '0')}:${minutePart}:${secondPart}`;
+    }
+
+    return `${minutePart}:${secondPart}`;
 };
 
-const resetProgressFill = () => {
-    const fill = document.getElementById(BAR_FILL_ID);
-    if (fill) {
-        fill.style.transform = 'scaleX(0)';
-    }
-};
-
-const handleVideoMetadata = () => startProgressSync();
-
-const stopProgressSync = () => {
-    if (progressState.animationId !== null) {
-        window.cancelAnimationFrame(progressState.animationId);
-        progressState.animationId = null;
-    }
-
-    if (progressState.video) {
-        progressState.video.removeEventListener('loadedmetadata', handleVideoMetadata);
-        progressState.video = null;
-    }
-
-    resetProgressFill();
-};
-
-const startProgressSync = () => {
-    const fill = document.getElementById(BAR_FILL_ID);
-    const video = getVideoElement();
-
-    if (!fill || !video) {
-        stopProgressSync();
-        return;
-    }
-
-    if (progressState.video !== video) {
-        if (progressState.video) {
-            progressState.video.removeEventListener('loadedmetadata', handleVideoMetadata);
+const getVideoIdFromLocation = () => {
+    try {
+        const url = new URL(window.location.href);
+        const watchId = url.searchParams.get('v');
+        if (watchId) {
+            return watchId;
         }
 
-        progressState.video = video;
-        progressState.video.addEventListener('loadedmetadata', handleVideoMetadata);
+        const shortsMatch = url.pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+        if (shortsMatch && shortsMatch[1]) {
+            return shortsMatch[1];
+        }
+    } catch (error) {
+        return null;
     }
 
-    if (progressState.animationId !== null) {
-        window.cancelAnimationFrame(progressState.animationId);
-        progressState.animationId = null;
+    return null;
+};
+
+const getStorageArea = () => {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        return chrome.storage.local;
+    }
+    return null;
+};
+
+const getStoredNotes = () => {
+    const storage = getStorageArea();
+    if (!storage) {
+        return Promise.resolve({});
     }
 
-    const sync = () => {
-        if (!document.body.contains(fill) || !document.body.contains(video)) {
-            stopProgressSync();
+    return new Promise((resolve) => {
+        storage.get([NOTES_STORAGE_KEY], (result) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                resolve({});
+                return;
+            }
+            resolve(result[NOTES_STORAGE_KEY] || {});
+        });
+    });
+};
+
+const saveStoredNotes = (payload) => {
+    const storage = getStorageArea();
+    if (!storage) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+        storage.set({ [NOTES_STORAGE_KEY]: payload }, () => {
+            resolve();
+        });
+    });
+};
+
+const loadNotesForVideo = async (videoId) => {
+    if (!videoId) {
+        return [];
+    }
+
+    const allNotes = await getStoredNotes();
+    const notes = Array.isArray(allNotes[videoId]) ? allNotes[videoId] : [];
+    return notes
+        .map((note) => ({
+            ...note,
+            timestamp: Number(note.timestamp)
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+};
+
+const persistNotesForVideo = async (videoId, notes) => {
+    if (!videoId) {
+        return;
+    }
+
+    const allNotes = await getStoredNotes();
+    allNotes[videoId] = notes;
+    await saveStoredNotes(allNotes);
+};
+
+const generateNoteId = () => {
+    const random = Math.random().toString(36).slice(2, 10);
+    return `${Date.now().toString(36)}-${random}`;
+};
+
+const closeTooltip = () => {
+    if (!ui.tooltip) {
+        return;
+    }
+
+    ui.tooltip.style.display = 'none';
+    ui.tooltip.style.visibility = 'visible';
+    if (ui.textarea) {
+        ui.textarea.value = '';
+    }
+    state.tooltipMode = null;
+    state.pendingTimestamp = null;
+    state.activeNoteId = null;
+    state.tooltipAnchor = null;
+    hideNotePreview();
+};
+
+const resolveAnchor = (anchorCandidate, fallbackNoteId, allowButtonFallback = true) => {
+    let reference = anchorCandidate instanceof Element ? anchorCandidate : null;
+    if (reference && !reference.isConnected) {
+        reference = null;
+    }
+
+    if (!reference && fallbackNoteId && ui.track) {
+        const candidate = ui.track.querySelector(`[data-note-id="${fallbackNoteId}"]`);
+        if (candidate) {
+            reference = candidate;
+        }
+    }
+
+    if (allowButtonFallback && !reference && ui.addButton && ui.addButton.isConnected) {
+        reference = ui.addButton;
+    }
+
+    return reference;
+};
+
+const positionTooltip = (anchorCandidate) => {
+    if (!ui.tooltip || !ui.container) {
+        return;
+    }
+
+    const containerRect = ui.container.getBoundingClientRect();
+    const containerCenterX = containerRect.left + containerRect.width / 2;
+    const containerCenterY = containerRect.top + containerRect.height / 2;
+
+    const reference = resolveAnchor(anchorCandidate, state.activeNoteId, true);
+    state.tooltipAnchor = reference || null;
+
+    const anchorRect = reference
+        ? reference.getBoundingClientRect()
+        : {
+              top: containerCenterY,
+              bottom: containerCenterY,
+              left: containerCenterX,
+              width: 0
+          };
+
+    const tooltipRect = ui.tooltip.getBoundingClientRect();
+
+    const rawTop = anchorRect.top - containerRect.top - tooltipRect.height - TOOLTIP_OFFSET;
+    const viewportSpaceAbove = anchorRect.top;
+    const viewportSpaceBelow = window.innerHeight - anchorRect.bottom;
+    let top = rawTop;
+    if (
+        !Number.isFinite(rawTop) ||
+        (viewportSpaceAbove < tooltipRect.height + TOOLTIP_OFFSET && viewportSpaceBelow > viewportSpaceAbove)
+    ) {
+        top = anchorRect.bottom - containerRect.top + TOOLTIP_OFFSET;
+    }
+
+    const anchorCenterX = reference ? anchorRect.left + anchorRect.width / 2 : containerCenterX;
+
+    let left = anchorCenterX - containerRect.left - tooltipRect.width / 2;
+    if (!Number.isFinite(left)) {
+        left = (containerRect.width - tooltipRect.width) / 2;
+    }
+
+    const maxLeft = Math.max(containerRect.width - tooltipRect.width, 0);
+    left = Math.min(Math.max(left, 0), maxLeft);
+
+    ui.tooltip.style.top = `${top}px`;
+    ui.tooltip.style.left = `${left}px`;
+    ui.tooltip.style.right = 'auto';
+    ui.tooltip.style.bottom = 'auto';
+};
+
+const hideNotePreview = () => {
+    if (!ui.previewTooltip) {
+        return;
+    }
+
+    ui.previewTooltip.style.display = 'none';
+    if (ui.previewText) {
+        ui.previewText.textContent = '';
+    }
+    state.previewAnchor = null;
+    state.previewNoteId = null;
+};
+
+const positionPreviewTooltip = () => {
+    if (!ui.previewTooltip || !ui.container || ui.previewTooltip.style.display !== 'block') {
+        return;
+    }
+
+    const containerRect = ui.container.getBoundingClientRect();
+
+    const reference = resolveAnchor(state.previewAnchor, state.previewNoteId, false);
+    if (!reference) {
+        hideNotePreview();
+        return;
+    }
+
+    state.previewAnchor = reference;
+
+    const anchorRect = reference.getBoundingClientRect();
+    const tooltipRect = ui.previewTooltip.getBoundingClientRect();
+
+    const rawTop = anchorRect.top - containerRect.top - tooltipRect.height - PREVIEW_OFFSET;
+    const viewportSpaceAbove = anchorRect.top;
+    const viewportSpaceBelow = window.innerHeight - anchorRect.bottom;
+    let top = rawTop;
+    if (
+        !Number.isFinite(rawTop) ||
+        (viewportSpaceAbove < tooltipRect.height + PREVIEW_OFFSET && viewportSpaceBelow > viewportSpaceAbove)
+    ) {
+        top = anchorRect.bottom - containerRect.top + PREVIEW_OFFSET;
+    }
+
+    const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+    let left = anchorCenterX - containerRect.left - tooltipRect.width / 2;
+    if (!Number.isFinite(left)) {
+        left = (containerRect.width - tooltipRect.width) / 2;
+    }
+
+    const maxLeft = Math.max(containerRect.width - tooltipRect.width, 0);
+    left = Math.min(Math.max(left, 0), maxLeft);
+
+    ui.previewTooltip.style.top = `${top}px`;
+    ui.previewTooltip.style.left = `${left}px`;
+};
+
+const showNotePreview = (note, anchor) => {
+    if (!ui.previewTooltip || !ui.previewText || !note || !note.text) {
+        hideNotePreview();
+        return;
+    }
+
+    state.previewNoteId = note.id;
+    state.previewAnchor = anchor instanceof Element ? anchor : null;
+    ui.previewText.textContent = note.text;
+    ui.previewTooltip.style.display = 'block';
+    positionPreviewTooltip();
+};
+
+const repositionTooltip = () => {
+    if (ui.tooltip && ui.tooltip.style.display === 'flex') {
+        positionTooltip(state.tooltipAnchor);
+    }
+
+    positionPreviewTooltip();
+};
+
+const attachResponsiveListeners = () => {
+    if (globalListenersAttached) {
+        return;
+    }
+
+    globalListenersAttached = true;
+    window.addEventListener('resize', repositionTooltip);
+    window.addEventListener('orientationchange', repositionTooltip);
+    window.addEventListener('scroll', repositionTooltip, true);
+};
+
+const openTooltip = ({ mode, timestamp, note, anchor }) => {
+    if (!ui.tooltip) {
+        return;
+    }
+
+    state.tooltipMode = mode;
+    state.pendingTimestamp = timestamp;
+    state.activeNoteId = note ? note.id : null;
+    let anchorElement = anchor instanceof Element ? anchor : null;
+    if (anchorElement && !anchorElement.isConnected) {
+        anchorElement = null;
+    }
+
+    if (!anchorElement && ui.addButton && ui.addButton.isConnected) {
+        anchorElement = ui.addButton;
+    }
+
+    state.tooltipAnchor = anchorElement;
+
+    if (ui.heading) {
+        ui.heading.textContent = mode === 'edit' ? 'Edit note' : 'Add a note';
+    }
+    if (ui.timestampLabel) {
+        ui.timestampLabel.textContent = `@ ${formatTimestamp(timestamp)}`;
+    }
+    if (ui.textarea) {
+        ui.textarea.value = note ? note.text : '';
+    }
+    if (ui.deleteButton) {
+        ui.deleteButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
+    }
+
+    hideNotePreview();
+    ui.tooltip.style.display = 'flex';
+    ui.tooltip.style.visibility = 'hidden';
+
+    window.requestAnimationFrame(() => {
+        if (!ui.tooltip || ui.tooltip.style.display !== 'flex') {
             return;
         }
 
-        updateProgressFill(video, fill);
-        progressState.animationId = window.requestAnimationFrame(sync);
-    };
+        positionTooltip(state.tooltipAnchor);
+        ui.tooltip.style.visibility = 'visible';
 
-    sync();
+        if (ui.textarea) {
+            const endPosition = ui.textarea.value.length;
+            ui.textarea.focus();
+            ui.textarea.setSelectionRange(endPosition, endPosition);
+        }
+    });
+};
+
+const renderNotesTrack = () => {
+    if (!ui.track) {
+        return;
+    }
+
+    const existingDots = ui.track.querySelectorAll('[data-note-id]');
+    existingDots.forEach((node) => node.remove());
+
+    const hasNotes = state.notes.length > 0;
+    if (ui.emptyState) {
+        ui.emptyState.style.display = hasNotes ? 'none' : 'block';
+    }
+
+    if (!hasNotes) {
+        hideNotePreview();
+        return;
+    }
+
+    const video = state.video;
+    const duration = video && Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+
+    state.notes.forEach((note) => {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.dataset.noteId = note.id;
+        const accessibleText = (note.text || '').replace(/\s+/g, ' ').trim();
+        const ariaLabel = accessibleText
+            ? `View note at ${formatTimestamp(note.timestamp)}: ${accessibleText}`
+            : `View note at ${formatTimestamp(note.timestamp)}`;
+        dot.setAttribute('aria-label', ariaLabel);
+        applyStyles(dot, {
+            position: 'absolute',
+            top: '50%',
+            width: '16px',
+            height: '16px',
+            borderRadius: '999px',
+            border: '1px solid rgba(10, 28, 46, 0.6)',
+            background:
+                'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95) 0%, #cde8ff 45%, #3ea6ff 100%)',
+            transform: 'translate(-50%, -50%)',
+            cursor: 'pointer',
+            transition: 'transform 140ms ease, box-shadow 140ms ease',
+            boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)',
+            outline: 'none'
+        });
+
+        const highlightDot = () => {
+            dot.style.transform = 'translate(-50%, -50%) scale(1.25)';
+            dot.style.boxShadow = '0 6px 14px rgba(62, 166, 255, 0.5)';
+            showNotePreview(note, dot);
+        };
+
+        const resetDot = () => {
+            dot.style.transform = 'translate(-50%, -50%)';
+            dot.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.25)';
+            if (state.previewNoteId === note.id) {
+                hideNotePreview();
+            }
+        };
+
+        dot.addEventListener('mouseenter', highlightDot);
+        dot.addEventListener('mouseleave', resetDot);
+        dot.addEventListener('focus', highlightDot);
+        dot.addEventListener('blur', resetDot);
+
+        dot.addEventListener('click', (event) => {
+            event.stopPropagation();
+            handleNoteDotClick(note.id, dot);
+        });
+
+        let position = 0;
+        if (duration && duration > 0) {
+            position = Math.min(Math.max((note.timestamp / duration) * 100, 0), 100);
+        }
+
+        dot.style.left = `${position}%`;
+        ui.track.appendChild(dot);
+    });
+
+    repositionTooltip();
+};
+
+const handleNoteDotClick = (noteId, anchor) => {
+    const note = state.notes.find((entry) => entry.id === noteId);
+    if (!note) {
+        return;
+    }
+
+    if (state.video) {
+        state.video.currentTime = note.timestamp;
+    }
+
+    hideNotePreview();
+    openTooltip({ mode: 'edit', timestamp: note.timestamp, note, anchor });
+};
+
+const handleAddButtonClick = () => {
+    const video = state.video || getVideoElement();
+    if (!video) {
+        return;
+    }
+
+    const timestamp = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    hideNotePreview();
+    openTooltip({ mode: 'create', timestamp, note: null, anchor: ui.addButton });
+};
+
+const handleSave = async () => {
+    if (!state.videoId || !state.tooltipMode || !ui.textarea) {
+        closeTooltip();
+        return;
+    }
+
+    const text = ui.textarea.value.trim();
+    if (!text) {
+        ui.textarea.focus();
+        return;
+    }
+
+    const timestamp = state.pendingTimestamp ?? 0;
+    const notes = [...state.notes];
+
+    if (state.tooltipMode === 'create') {
+        notes.push({
+            id: generateNoteId(),
+            timestamp,
+            text,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        });
+    } else if (state.tooltipMode === 'edit' && state.activeNoteId) {
+        const index = notes.findIndex((note) => note.id === state.activeNoteId);
+        if (index >= 0) {
+            notes[index] = {
+                ...notes[index],
+                text,
+                updatedAt: Date.now()
+            };
+        }
+    }
+
+    notes.sort((a, b) => a.timestamp - b.timestamp);
+    state.notes = notes;
+
+    await persistNotesForVideo(state.videoId, notes);
+    renderNotesTrack();
+    closeTooltip();
+};
+
+const handleDelete = async () => {
+    if (!state.videoId || !state.activeNoteId) {
+        return;
+    }
+
+    const filtered = state.notes.filter((note) => note.id !== state.activeNoteId);
+    state.notes = filtered;
+    await persistNotesForVideo(state.videoId, filtered);
+    renderNotesTrack();
+    closeTooltip();
+};
+
+const handleTooltipKeydown = (event) => {
+    if (event.key === 'Escape') {
+        closeTooltip();
+    }
+};
+
+const attachUiListeners = () => {
+    if (!ui.addButton || !ui.tooltip) {
+        return;
+    }
+
+    ui.addButton.addEventListener('click', handleAddButtonClick);
+    ui.cancelButton.addEventListener('click', closeTooltip);
+    ui.saveButton.addEventListener('click', handleSave);
+    ui.deleteButton.addEventListener('click', handleDelete);
+    ui.tooltip.addEventListener('keydown', handleTooltipKeydown);
+};
+
+const detachVideoListeners = () => {
+    if (!state.video) {
+        return;
+    }
+
+    VIDEO_EVENTS.forEach((eventName) => {
+        state.video.removeEventListener(eventName, handleVideoMetadata);
+    });
+};
+
+const handleVideoMetadata = () => {
+    renderNotesTrack();
+};
+
+const assignVideoElement = () => {
+    const video = getVideoElement();
+    if (state.video === video) {
+        return video;
+    }
+
+    detachVideoListeners();
+    state.video = video;
+
+    if (video) {
+        VIDEO_EVENTS.forEach((eventName) => {
+            video.addEventListener(eventName, handleVideoMetadata);
+        });
+
+        if (Number.isFinite(video.duration) && video.duration > 0) {
+            renderNotesTrack();
+        }
+    } else {
+        renderNotesTrack();
+    }
+
+    return video;
+};
+
+const refreshNotesForCurrentVideo = async () => {
+    const videoId = getVideoIdFromLocation();
+    if (!videoId) {
+        if (state.videoId !== null) {
+            detachVideoListeners();
+            state.video = null;
+        }
+        state.videoId = null;
+        state.notes = [];
+        renderNotesTrack();
+        closeTooltip();
+        return;
+    }
+
+    if (state.videoId === videoId) {
+        assignVideoElement();
+        renderNotesTrack();
+        return;
+    }
+
+    const notes = await loadNotesForVideo(videoId);
+    if (getVideoIdFromLocation() !== videoId) {
+        return;
+    }
+
+    state.videoId = videoId;
+    state.notes = notes;
+    assignVideoElement();
+    renderNotesTrack();
+    closeTooltip();
 };
 
 const locateTitleContainer = () => document.querySelector('#primary-inner ytd-watch-metadata #title');
 
-const insertBar = () => {
+const insertContainer = () => {
     const player = document.getElementById('player');
     const titleContainer = locateTitleContainer();
     const metadataContainer = titleContainer ? titleContainer.parentElement : null;
@@ -281,22 +920,35 @@ const insertBar = () => {
         return false;
     }
 
-    if (document.getElementById(BAR_CONTAINER_ID)) {
+    if (document.getElementById(CONTAINER_ID)) {
         return true;
     }
 
-    const barContainer = createBarElement();
-    metadataContainer.insertBefore(barContainer, titleContainer);
+    const elements = createContainer();
+    ui.container = elements.container;
+    ui.addButton = elements.addButton;
+    ui.track = elements.track;
+    ui.emptyState = elements.emptyState;
+    ui.tooltip = elements.tooltip;
+    ui.heading = elements.heading;
+    ui.timestampLabel = elements.timestampLabel;
+    ui.textarea = elements.textarea;
+    ui.deleteButton = elements.deleteButton;
+    ui.cancelButton = elements.cancelButton;
+    ui.saveButton = elements.saveButton;
+    ui.previewTooltip = elements.previewTooltip;
+    ui.previewText = elements.previewText;
 
+    metadataContainer.insertBefore(elements.container, titleContainer);
+    attachUiListeners();
     return true;
 };
 
 const ensureUiReady = () => {
-    const inserted = insertBar();
+    const inserted = insertContainer();
     if (inserted) {
-        startProgressSync();
-    } else {
-        stopProgressSync();
+        assignVideoElement();
+        refreshNotesForCurrentVideo().catch(() => {});
     }
     return inserted;
 };
@@ -317,6 +969,7 @@ const startObserving = () => {
 };
 
 const initialize = () => {
+    attachResponsiveListeners();
     if (!ensureUiReady()) {
         startObserving();
     }
