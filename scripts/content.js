@@ -18,7 +18,8 @@ const state = {
     pendingTimestamp: null,
     tooltipAnchor: null,
     previewAnchor: null,
-    previewNoteId: null
+    previewNoteId: null,
+    resumePlaybackVideo: null
 };
 
 const ui = {
@@ -97,6 +98,7 @@ let themeMediaQuery = null;
 let themeAppObserver = null;
 
 let globalListenersAttached = false;
+let shortcutListenerAttached = false;
 let tooltipDismissCleanup = null;
 
 const applyStyles = (element, styles) => {
@@ -109,6 +111,27 @@ const createButton = (label, styles) => {
     button.textContent = label;
     applyStyles(button, styles);
     return button;
+};
+
+const isEditableTarget = (target) => {
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) {
+        return true;
+    }
+
+    const role = target.getAttribute('role');
+    if (role === 'textbox' || role === 'searchbox') {
+        return true;
+    }
+
+    if (target.closest('[role="textbox"], [role="searchbox"]')) {
+        return true;
+    }
+
+    return false;
 };
 
 const parseRgbColor = (value) => {
@@ -601,21 +624,19 @@ const createContainer = (palette) => {
         fontWeight: '600'
     });
 
-    const addButton = createButton('+', {
-        width: '28px',
-        height: '28px',
-        borderRadius: '50%',
+    const addButton = createButton('+ Add note', {
+        borderRadius: '999px',
         border: 'none',
         backgroundColor: '#3ea6ff',
         color: '#000000',
-        fontSize: '20px',
+        fontSize: '14px',
         fontWeight: '600',
-        lineHeight: '1',
+        lineHeight: '1.2',
         cursor: 'pointer',
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0'
+        padding: '6px 14px'
     });
     addButton.id = 'video-notes-add-button';
     addButton.setAttribute('aria-label', 'Add a note for the current moment');
@@ -651,7 +672,7 @@ const createContainer = (palette) => {
     track.appendChild(trackBaseline);
 
     const emptyState = document.createElement('span');
-    emptyState.textContent = 'No notes yet. Click + to capture a thought.';
+    emptyState.textContent = 'No notes yet. Click "+ Add note" to capture a thought.';
     applyStyles(emptyState, {
         color: palette.textSecondary,
         fontSize: '13px'
@@ -905,6 +926,18 @@ const closeTooltip = () => {
     state.activeNoteId = null;
     state.tooltipAnchor = null;
     hideNotePreview();
+    const resumeVideo = state.resumePlaybackVideo;
+    if (resumeVideo && typeof resumeVideo.play === 'function' && resumeVideo.isConnected !== false) {
+        try {
+            const playResult = resumeVideo.play();
+            if (playResult && typeof playResult.catch === 'function') {
+                playResult.catch(() => {});
+            }
+        } catch {
+            // Ignore playback errors caused by browser policies or missing user gesture.
+        }
+    }
+    state.resumePlaybackVideo = null;
     if (typeof tooltipDismissCleanup === 'function') {
         tooltipDismissCleanup();
         tooltipDismissCleanup = null;
@@ -1066,6 +1099,15 @@ const attachResponsiveListeners = () => {
     window.addEventListener('resize', repositionTooltip);
     window.addEventListener('orientationchange', repositionTooltip);
     window.addEventListener('scroll', repositionTooltip, true);
+};
+
+const attachShortcutListener = () => {
+    if (shortcutListenerAttached) {
+        return;
+    }
+
+    window.addEventListener('keydown', handleShortcutKeydown);
+    shortcutListenerAttached = true;
 };
 
 const attachTooltipDismissListener = () => {
@@ -1317,9 +1359,53 @@ const handleAddButtonClick = () => {
         return;
     }
 
+    state.video = video;
+    const wasPlaying = !video.paused && !video.ended;
+    state.resumePlaybackVideo = wasPlaying ? video : null;
+    video.pause();
+
     const timestamp = Number.isFinite(video.currentTime) ? video.currentTime : 0;
     hideNotePreview();
     openTooltip({ mode: 'create', timestamp, note: null, anchor: ui.addButton });
+};
+
+const handleShortcutKeydown = (event) => {
+    if (event.defaultPrevented) {
+        return;
+    }
+
+    if (!event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+    }
+
+    const code = typeof event.code === 'string' ? event.code : '';
+    const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+    if (code !== 'KeyN' && key !== 'n') {
+        return;
+    }
+
+    if (event.repeat) {
+        event.preventDefault();
+        return;
+    }
+
+    if (isEditableTarget(event.target)) {
+        return;
+    }
+
+    if (!ui.addButton || !ui.addButton.isConnected) {
+        if (!ensureUiReady()) {
+            return;
+        }
+    }
+
+    if (!ui.addButton || !ui.addButton.isConnected) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    handleAddButtonClick();
 };
 
 const handleSave = async () => {
@@ -1536,6 +1622,7 @@ const startObserving = () => {
 
 const initialize = () => {
     attachResponsiveListeners();
+    attachShortcutListener();
     watchThemeChanges();
     handleThemeChange();
     if (!ensureUiReady()) {
