@@ -1465,6 +1465,14 @@ const handleDelete = async () => {
 const handleTooltipKeydown = (event) => {
     if (event.key === 'Escape') {
         closeTooltip();
+        return;
+    }
+
+    const isTextareaShortcutTarget = ui.textarea && event.target === ui.textarea;
+    const isSaveShortcut = event.key === 'Enter' && (event.ctrlKey || event.metaKey);
+    if (isTextareaShortcutTarget && isSaveShortcut) {
+        event.preventDefault();
+        handleSave();
     }
 };
 
