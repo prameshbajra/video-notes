@@ -1,16 +1,286 @@
 const NOTES_STORAGE_KEY = 'videoNotes:notes';
 const METADATA_STORAGE_KEY = 'videoNotes:metadata';
+const VIEW_NOTES = 'notes';
+const VIEW_SETTINGS = 'settings';
 
 const state = {
     videos: [],
     expandedVideos: new Set(),
-    searchTerm: ''
+    searchTerm: '',
+    activeView: VIEW_NOTES
 };
 
 const elements = {
     searchInput: document.getElementById('search-input'),
     videoList: document.getElementById('video-list'),
-    emptyState: document.getElementById('empty-state')
+    emptyState: document.getElementById('empty-state'),
+    notesView: document.getElementById('notes-view'),
+    settingsView: document.getElementById('settings-view'),
+    settingsButton: document.getElementById('settings-button'),
+    backButton: document.getElementById('back-button'),
+    exportButton: document.getElementById('export-button'),
+    importButton: document.getElementById('import-button'),
+    importInput: document.getElementById('import-input'),
+    settingsMessage: document.getElementById('settings-message')
+};
+
+const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'];
+
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const getObjectOrEmpty = (value) => (isPlainObject(value) ? value : {});
+
+const syncViewVisibility = () => {
+    const isNotesView = state.activeView === VIEW_NOTES;
+
+    if (elements.notesView) {
+        elements.notesView.classList.toggle('view--active', isNotesView);
+    }
+
+    if (elements.settingsView) {
+        elements.settingsView.classList.toggle('view--active', !isNotesView);
+    }
+
+    if (elements.searchInput) {
+        elements.searchInput.hidden = !isNotesView;
+    }
+};
+
+const setActiveView = (view) => {
+    if (view !== VIEW_NOTES && view !== VIEW_SETTINGS) {
+        return;
+    }
+
+    if (state.activeView === view) {
+        return;
+    }
+
+    state.activeView = view;
+    syncViewVisibility();
+};
+
+const setSettingsMessage = (message, variant) => {
+    if (!elements.settingsMessage) {
+        return;
+    }
+
+    elements.settingsMessage.textContent = message || '';
+    SETTINGS_MESSAGE_STATES.forEach((className) => {
+        elements.settingsMessage.classList.remove(className);
+    });
+
+    if (!variant) {
+        return;
+    }
+
+    const className = variant === 'success' ? 'settings-message--success' : 'settings-message--error';
+    elements.settingsMessage.classList.add(className);
+};
+
+const createBackupPayload = async () => {
+    const snapshot = await getStorageSnapshot();
+    return {
+        notes: getObjectOrEmpty(snapshot[NOTES_STORAGE_KEY]),
+        metadata: getObjectOrEmpty(snapshot[METADATA_STORAGE_KEY]),
+        exportedAt: new Date().toISOString()
+    };
+};
+
+const triggerBackupDownload = (payload) => {
+    const serialized = JSON.stringify(payload, null, 2);
+    const blob = new Blob([serialized], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `video-notes-backup-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+};
+
+const handleExportClick = async () => {
+    try {
+        const payload = await createBackupPayload();
+        triggerBackupDownload(payload);
+        setSettingsMessage('Export ready.', 'success');
+    } catch (error) {
+        setSettingsMessage('Unable to create export.', 'error');
+    }
+};
+
+const persistBackupPayload = (notes, metadata) =>
+    new Promise((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.set(
+            {
+                [NOTES_STORAGE_KEY]: notes,
+                [METADATA_STORAGE_KEY]: metadata
+            },
+            () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve();
+            }
+        );
+    });
+
+const getNoteDedupKey = (note) => {
+    if (!isPlainObject(note)) {
+        return null;
+    }
+
+    if (typeof note.id === 'string') {
+        const trimmed = note.id.trim();
+        if (trimmed) {
+            return `id:${trimmed}`;
+        }
+    }
+
+    const timestamp = Number(note.timestamp);
+    const normalizedTimestamp = Number.isFinite(timestamp) ? timestamp : null;
+    const text = typeof note.text === 'string' ? note.text.trim().toLowerCase() : '';
+
+    if (normalizedTimestamp === null && !text) {
+        return null;
+    }
+
+    return `fallback:${normalizedTimestamp !== null ? normalizedTimestamp : 'na'}:${text}`;
+};
+
+const mergeNotesPayload = (existingNotes, importedNotes) => {
+    const merged = { ...existingNotes };
+
+    Object.entries(importedNotes).forEach(([videoId, rawNotes]) => {
+        if (!Array.isArray(rawNotes) || rawNotes.length === 0) {
+            return;
+        }
+
+        const sanitizedNotes = rawNotes.filter((note) => isPlainObject(note));
+        if (sanitizedNotes.length === 0) {
+            return;
+        }
+
+        const currentNotes = Array.isArray(merged[videoId]) ? merged[videoId] : [];
+        const combined = currentNotes.slice();
+        const seenKeys = new Set(currentNotes.map((note) => getNoteDedupKey(note)).filter(Boolean));
+
+        sanitizedNotes.forEach((note) => {
+            const key = getNoteDedupKey(note);
+            if (!key || seenKeys.has(key)) {
+                return;
+            }
+            seenKeys.add(key);
+            combined.push(note);
+        });
+
+        merged[videoId] = combined;
+    });
+
+    return merged;
+};
+
+const mergeMetadataPayload = (existingMetadata, importedMetadata, mergedNotes) => {
+    const merged = {};
+
+    Object.entries(existingMetadata).forEach(([videoId, metadata]) => {
+        if (isPlainObject(metadata)) {
+            merged[videoId] = { ...metadata };
+        }
+    });
+
+    Object.entries(importedMetadata).forEach(([videoId, metadata]) => {
+        if (!isPlainObject(metadata)) {
+            return;
+        }
+
+        if (!merged[videoId]) {
+            merged[videoId] = { ...metadata };
+            return;
+        }
+
+        const currentUpdatedAt = Number(merged[videoId].updatedAt);
+        const candidateUpdatedAt = Number(metadata.updatedAt);
+        const useImported =
+            Number.isFinite(candidateUpdatedAt) && (!Number.isFinite(currentUpdatedAt) || candidateUpdatedAt > currentUpdatedAt);
+
+        if (useImported) {
+            merged[videoId] = { ...merged[videoId], ...metadata };
+        }
+    });
+
+    Object.entries(mergedNotes).forEach(([videoId, notes]) => {
+        if (!Array.isArray(notes) || notes.length === 0) {
+            return;
+        }
+
+        const base = merged[videoId] ? { ...merged[videoId] } : {};
+        base.noteCount = notes.length;
+        merged[videoId] = base;
+    });
+
+    return merged;
+};
+
+const handleImportButtonClick = () => {
+    if (!elements.importInput) {
+        return;
+    }
+
+    elements.importInput.value = '';
+    elements.importInput.click();
+};
+
+const handleImportFileChange = (event) => {
+    const input = event.target;
+    const file = input && input.files && input.files[0];
+    if (!file) {
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+        try {
+            if (typeof reader.result !== 'string') {
+                throw new Error('Invalid data');
+            }
+
+            const parsed = JSON.parse(reader.result);
+            if (!isPlainObject(parsed)) {
+                throw new Error('Invalid backup format');
+            }
+
+            const notes = getObjectOrEmpty(parsed.notes);
+            const metadata = getObjectOrEmpty(parsed.metadata);
+            const snapshot = await getStorageSnapshot();
+            const existingNotes = getObjectOrEmpty(snapshot[NOTES_STORAGE_KEY]);
+            const existingMetadata = getObjectOrEmpty(snapshot[METADATA_STORAGE_KEY]);
+            const mergedNotes = mergeNotesPayload(existingNotes, notes);
+            const mergedMetadata = mergeMetadataPayload(existingMetadata, metadata, mergedNotes);
+
+            await persistBackupPayload(mergedNotes, mergedMetadata);
+            setSettingsMessage('Backup imported successfully.', 'success');
+            loadVideos();
+        } catch (error) {
+            setSettingsMessage('Import failed. Please use a valid backup file.', 'error');
+        } finally {
+            input.value = '';
+        }
+    };
+
+    reader.onerror = () => {
+        setSettingsMessage('Unable to read the selected file.', 'error');
+        input.value = '';
+    };
+
+    reader.readAsText(file);
 };
 
 const formatTimestamp = (value) => {
@@ -349,8 +619,30 @@ const storageChangeHandler = (changes, areaName) => {
 };
 
 const initialize = () => {
+    syncViewVisibility();
+
     if (elements.searchInput) {
         elements.searchInput.addEventListener('input', handleSearchInput);
+    }
+
+    if (elements.settingsButton) {
+        elements.settingsButton.addEventListener('click', () => setActiveView(VIEW_SETTINGS));
+    }
+
+    if (elements.backButton) {
+        elements.backButton.addEventListener('click', () => setActiveView(VIEW_NOTES));
+    }
+
+    if (elements.exportButton) {
+        elements.exportButton.addEventListener('click', handleExportClick);
+    }
+
+    if (elements.importButton) {
+        elements.importButton.addEventListener('click', handleImportButtonClick);
+    }
+
+    if (elements.importInput) {
+        elements.importInput.addEventListener('change', handleImportFileChange);
     }
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {

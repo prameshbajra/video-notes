@@ -1,26 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
+
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Video Notes</title>
         <link rel="stylesheet" href="popup.css" />
     </head>
+
     <body>
         <div class="app">
             <header class="header">
-                <h1 class="header__title">Video Notes</h1>
-                <input
-                    id="search-input"
-                    class="header__search"
-                    type="search"
-                    placeholder="Search videos or notes"
-                    autocomplete="off"
-                />
+                <div class="header__row">
+                    <h1 class="header__title">Video Notes</h1>
+                    <button id="settings-button" class="icon-button" type="button" aria-label="Open settings">
+                        <span aria-hidden="true">⚙️</span>
+                    </button>
+                </div>
+                <input id="search-input" class="header__search" type="search" placeholder="Search videos or notes" autocomplete="off" />
             </header>
-            <div id="empty-state" class="empty-state" hidden></div>
-            <ul id="video-list" class="video-list"></ul>
+            <div id="notes-view" class="view view--active">
+                <div id="empty-state" class="empty-state" hidden></div>
+                <ul id="video-list" class="video-list"></ul>
+            </div>
+            <div id="settings-view" class="view">
+                <button id="back-button" class="back-button" type="button">← Back</button>
+                <div class="settings-content">
+                    <h2 class="settings-content__title">Data backup</h2>
+                    <p class="settings-content__description">
+                        Export your saved notes as a JSON file or import a previous backup.
+                    </p>
+                    <div class="settings-actions">
+                        <button id="export-button" class="settings-button" type="button">Export notes</button>
+                        <button id="import-button" class="settings-button settings-button--secondary" type="button">
+                            Import notes
+                        </button>
+                        <input id="import-input" type="file" accept="application/json" hidden />
+                    </div>
+                    <p id="settings-message" class="settings-message" role="status" aria-live="polite"></p>
+                </div>
+            </div>
         </div>
         <script type="module" src="popup.js"></script>
     </body>
+
 </html>

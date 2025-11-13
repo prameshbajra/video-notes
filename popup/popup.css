@@ -52,11 +52,36 @@ body {
     gap: 8px;
 }
 
+.header__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .header__title {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
     letter-spacing: 0.2px;
+}
+
+.icon-button {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 999px;
+    line-height: 1;
+    transition: background-color 120ms ease;
+}
+
+.icon-button:hover,
+.icon-button:focus {
+    outline: none;
+    background-color: var(--accent-muted);
 }
 
 .header__search {
@@ -75,6 +100,16 @@ body {
     box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
+.view {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.view--active {
+    display: flex;
+}
+
 .empty-state {
     padding: 16px;
     border-radius: 10px;
@@ -91,6 +126,84 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.back-button {
+    align-self: flex-start;
+    border: none;
+    background-color: transparent;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.back-button:hover,
+.back-button:focus {
+    outline: none;
+    text-decoration: underline;
+}
+
+.settings-content {
+    padding: 16px;
+    border-radius: 10px;
+    background-color: var(--surface);
+    border: 1px solid var(--divider);
+}
+
+.settings-content__title {
+    margin: 0 0 4px;
+    font-size: 16px;
+}
+
+.settings-content__description {
+    margin: 0 0 12px;
+    color: var(--muted);
+}
+
+.settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.settings-button {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    color: #ffffff;
+    background-color: var(--accent);
+    transition: opacity 120ms ease;
+}
+
+.settings-button:hover,
+.settings-button:focus {
+    outline: none;
+    opacity: 0.9;
+}
+
+.settings-button--secondary {
+    background-color: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.settings-message {
+    min-height: 1em;
+    margin: 0;
+    color: var(--muted);
+}
+
+.settings-message--success {
+    color: #15803d;
+}
+
+.settings-message--error {
+    color: #b91c1c;
 }
 
 .video-item {
