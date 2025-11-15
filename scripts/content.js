@@ -628,7 +628,7 @@ const createContainer = (palette) => {
         borderRadius: '999px',
         border: 'none',
         backgroundColor: '#3ea6ff',
-        color: '#000000',
+        color: '#ffffff',
         fontSize: '14px',
         fontWeight: '600',
         lineHeight: '1.2',
