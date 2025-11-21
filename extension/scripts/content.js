@@ -672,7 +672,7 @@ const createContainer = (palette) => {
     track.appendChild(trackBaseline);
 
     const emptyState = document.createElement('span');
-    emptyState.textContent = 'No notes yet. Click "+ Add note" to capture a thought.';
+    emptyState.innerHTML = 'No notes yet. Click “+ Add note” to save your thoughts. <br>Use Alt + N (Windows) or Option + N (Mac) to create a new note, and Ctrl + Enter to save it.';
     applyStyles(emptyState, {
         color: palette.textSecondary,
         fontSize: '13px'
