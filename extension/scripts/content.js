@@ -4,6 +4,7 @@ const TOOLTIP_ID = 'video-notes-tooltip';
 const PREVIEW_TOOLTIP_ID = 'video-notes-preview';
 const NOTES_STORAGE_KEY = 'videoNotes:notes';
 const METADATA_STORAGE_KEY = 'videoNotes:metadata';
+const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const OBSERVER_OPTIONS = { childList: true, subtree: true };
 const VIDEO_EVENTS = ['loadedmetadata', 'durationchange'];
 const TOOLTIP_OFFSET = 12;
@@ -19,12 +20,16 @@ const state = {
     tooltipAnchor: null,
     previewAnchor: null,
     previewNoteId: null,
-    resumePlaybackVideo: null
+    previewAnchor: null,
+    previewNoteId: null,
+    resumePlaybackVideo: null,
+    zenMode: false
 };
 
 const ui = {
     container: null,
     addButton: null,
+    zenButton: null,
     track: null,
     trackBaseline: null,
     tooltip: null,
@@ -641,8 +646,44 @@ const createContainer = (palette) => {
     addButton.id = 'video-notes-add-button';
     addButton.setAttribute('aria-label', 'Add a note for the current moment');
 
+    const zenButton = createButton('Zen Mode', {
+        borderRadius: '999px',
+        border: 'none',
+        backgroundColor: '#3ea6ff',
+        color: '#ffffff',
+        fontSize: '14px',
+        fontWeight: '600',
+        lineHeight: '1.2',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '6px 14px',
+        marginLeft: '8px',
+        transition: 'background-color 0.2s ease'
+    });
+    zenButton.id = 'video-notes-zen-button';
+    zenButton.setAttribute('aria-label', 'Toggle Zen Mode');
+
+    zenButton.addEventListener('mouseenter', () => {
+        zenButton.style.opacity = '0.9';
+    });
+
+    zenButton.addEventListener('mouseleave', () => {
+        zenButton.style.opacity = '1';
+    });
+
+    const headerActions = document.createElement('div');
+    applyStyles(headerActions, {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+    });
+    headerActions.appendChild(zenButton);
+    headerActions.appendChild(addButton);
+
     header.appendChild(title);
-    header.appendChild(addButton);
+    header.appendChild(headerActions);
 
     const track = document.createElement('div');
     track.id = TRACK_ID;
@@ -709,7 +750,8 @@ const createContainer = (palette) => {
         cancelButton,
         saveButton,
         previewTooltip,
-        previewText
+        previewText,
+        zenButton
     };
 };
 
@@ -1369,6 +1411,64 @@ const handleAddButtonClick = () => {
     openTooltip({ mode: 'create', timestamp, note: null, anchor: ui.addButton });
 };
 
+const toggleZenMode = (enabled) => {
+    state.zenMode = enabled;
+
+    const root = document.documentElement;
+    if (enabled) {
+        root.classList.add('video-notes-zen');
+        if (ui.zenButton) {
+            ui.zenButton.textContent = 'Exit Zen';
+            ui.zenButton.style.backgroundColor = '#606060'; // Darker gray for exit state
+        }
+    } else {
+        root.classList.remove('video-notes-zen');
+        if (ui.zenButton) {
+            ui.zenButton.textContent = 'Zen Mode';
+            ui.zenButton.style.backgroundColor = '#3ea6ff';
+        }
+    }
+
+    // Inject styles if not already present
+    if (!document.getElementById('video-notes-zen-styles')) {
+        const style = document.createElement('style');
+        style.id = 'video-notes-zen-styles';
+        style.textContent = `
+            html.video-notes-zen #secondary,
+            html.video-notes-zen #comments,
+            html.video-notes-zen ytd-merch-shelf-renderer,
+            html.video-notes-zen #related,
+            html.video-notes-zen #bottom-row {
+                display: none !important;
+            }
+            
+            html.video-notes-zen ytd-watch-flexy[flexy] #primary.ytd-watch-flexy {
+                max-width: 100% !important;
+                min-width: 0 !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                padding: 0 24px !important;
+            }
+            
+            html.video-notes-zen #columns {
+                max-width: 1200px !important;
+                margin: 0 auto !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+};
+
+const handleZenButtonClick = () => {
+    const newState = !state.zenMode;
+    toggleZenMode(newState);
+
+    const storage = getStorageArea();
+    if (storage) {
+        storage.set({ [ZEN_MODE_STORAGE_KEY]: newState });
+    }
+};
+
 const handleShortcutKeydown = (event) => {
     if (event.defaultPrevented) {
         return;
@@ -1482,6 +1582,9 @@ const attachUiListeners = () => {
     }
 
     ui.addButton.addEventListener('click', handleAddButtonClick);
+    if (ui.zenButton) {
+        ui.zenButton.addEventListener('click', handleZenButtonClick);
+    }
     ui.cancelButton.addEventListener('click', closeTooltip);
     ui.saveButton.addEventListener('click', handleSave);
     ui.deleteButton.addEventListener('click', handleDelete);
@@ -1585,6 +1688,7 @@ const insertContainer = () => {
     const elements = createContainer(palette);
     ui.container = elements.container;
     ui.addButton = elements.addButton;
+    ui.zenButton = elements.zenButton;
     ui.track = elements.track;
     ui.trackBaseline = elements.trackBaseline;
     ui.emptyState = elements.emptyState;
@@ -1654,6 +1758,23 @@ const initialize = () => {
     watchThemeChanges();
     handleThemeChange();
     handleRouteChange();
+
+    const storage = getStorageArea();
+    if (storage) {
+        storage.get([ZEN_MODE_STORAGE_KEY], (result) => {
+            if (result[ZEN_MODE_STORAGE_KEY]) {
+                toggleZenMode(true);
+            }
+        });
+
+        if (chrome.storage.onChanged) {
+            chrome.storage.onChanged.addListener((changes, areaName) => {
+                if (areaName === 'local' && changes[ZEN_MODE_STORAGE_KEY]) {
+                    toggleZenMode(changes[ZEN_MODE_STORAGE_KEY].newValue);
+                }
+            });
+        }
+    }
 };
 
 initialize();

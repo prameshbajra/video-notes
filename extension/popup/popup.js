@@ -1,5 +1,6 @@
 const NOTES_STORAGE_KEY = 'videoNotes:notes';
 const METADATA_STORAGE_KEY = 'videoNotes:metadata';
+const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const VIEW_NOTES = 'notes';
 const VIEW_SETTINGS = 'settings';
 
@@ -21,7 +22,9 @@ const elements = {
     exportButton: document.getElementById('export-button'),
     importButton: document.getElementById('import-button'),
     importInput: document.getElementById('import-input'),
-    settingsMessage: document.getElementById('settings-message')
+    importInput: document.getElementById('import-input'),
+    settingsMessage: document.getElementById('settings-message'),
+    zenModeToggle: document.getElementById('zen-mode-toggle')
 };
 
 const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'];
@@ -643,6 +646,21 @@ const initialize = () => {
 
     if (elements.importInput) {
         elements.importInput.addEventListener('change', handleImportFileChange);
+    }
+
+    if (elements.zenModeToggle) {
+        elements.zenModeToggle.addEventListener('change', (e) => {
+            const isEnabled = e.target.checked;
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.set({ [ZEN_MODE_STORAGE_KEY]: isEnabled });
+            }
+        });
+
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get([ZEN_MODE_STORAGE_KEY], (result) => {
+                elements.zenModeToggle.checked = !!result[ZEN_MODE_STORAGE_KEY];
+            });
+        }
     }
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {

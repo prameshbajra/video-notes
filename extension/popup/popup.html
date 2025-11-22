@@ -35,6 +35,20 @@
             <div id="settings-view" class="view">
                 <button id="back-button" class="back-button" type="button">← Back</button>
                 <div class="settings-content">
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <h2 class="settings-content__title">Zen mode</h2>
+                            <p class="settings-content__description">
+                                Hide distractions on YouTube.
+                            </p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input id="zen-mode-toggle" type="checkbox" />
+                            <span class="toggle-switch__slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-content">
                     <h2 class="settings-content__title">Data backup</h2>
                     <p class="settings-content__description">
                         Export your saved notes as a JSON file or import a previous backup.
@@ -46,7 +60,6 @@
                         </button>
                         <input id="import-input" type="file" accept="application/json" hidden />
                     </div>
-                    <p id="settings-message" class="settings-message" role="status" aria-live="polite"></p>
                 </div>
             </div>
         </div>
