@@ -1705,6 +1705,10 @@ const insertContainer = () => {
     metadataContainer.insertBefore(elements.container, titleContainer);
     applyThemeToUi(palette);
     attachUiListeners();
+    if (state.zenMode) {
+        // Sync the zen button label/state when we render after a persisted toggle
+        toggleZenMode(true);
+    }
     return true;
 };
 
