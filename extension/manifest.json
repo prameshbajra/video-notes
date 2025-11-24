@@ -1,5 +1,11 @@
 {
     "manifest_version": 3,
+    "browser_specific_settings": {
+	"gecko": {
+		"id": "videonotes@syfk.extensions",
+		"strict_min_version": "42"
+	}
+    },
     "name": "Video Notes",
     "version": "1.0.2",
     "description": "Take notes while watching youtube videos.",
@@ -18,6 +24,7 @@
     },
     "background": {
         "service_worker": "background.js",
+	"scripts": ["background.js"],
         "type": "module"
     },
     "permissions": [
