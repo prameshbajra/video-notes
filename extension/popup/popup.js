@@ -77,6 +77,23 @@ const setSettingsMessage = (message, variant) => {
     elements.settingsMessage.classList.add(className);
 };
 
+const createDeleteIcon = () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'delete-button__icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M6 6l12 12M6 18 18 6');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '1.8');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+
+    svg.appendChild(path);
+    return svg;
+};
+
 const createBackupPayload = async () => {
     const snapshot = await getStorageSnapshot();
     return {
@@ -319,6 +336,92 @@ const getStorageSnapshot = () =>
         });
     });
 
+const persistNotesPayload = async (notesPayload, metadataPayload) => {
+    await persistBackupPayload(notesPayload, metadataPayload);
+};
+
+const deleteVideoFromStorage = async (videoId) => {
+    if (!videoId) {
+        return;
+    }
+
+    const snapshot = await getStorageSnapshot();
+    const notesPayload = getObjectOrEmpty(snapshot[NOTES_STORAGE_KEY]);
+    const metadataPayload = getObjectOrEmpty(snapshot[METADATA_STORAGE_KEY]);
+
+    const hasNotes = Object.prototype.hasOwnProperty.call(notesPayload, videoId);
+    const hasMetadata = Object.prototype.hasOwnProperty.call(metadataPayload, videoId);
+    if (!hasNotes && !hasMetadata) {
+        return;
+    }
+
+    delete notesPayload[videoId];
+    delete metadataPayload[videoId];
+
+    await persistNotesPayload(notesPayload, metadataPayload);
+};
+
+const deleteNoteFromStorage = async (videoId, noteKey) => {
+    if (!videoId || !noteKey) {
+        return;
+    }
+
+    const snapshot = await getStorageSnapshot();
+    const notesPayload = getObjectOrEmpty(snapshot[NOTES_STORAGE_KEY]);
+    const metadataPayload = getObjectOrEmpty(snapshot[METADATA_STORAGE_KEY]);
+    const existingNotes = Array.isArray(notesPayload[videoId]) ? notesPayload[videoId] : [];
+
+    const filteredNotes = existingNotes.filter((note) => getNoteDedupKey(note) !== noteKey);
+    if (filteredNotes.length === existingNotes.length) {
+        return;
+    }
+
+    if (filteredNotes.length === 0) {
+        delete notesPayload[videoId];
+        delete metadataPayload[videoId];
+        await persistNotesPayload(notesPayload, metadataPayload);
+        return;
+    }
+
+    notesPayload[videoId] = filteredNotes;
+    const existingMetadata = isPlainObject(metadataPayload[videoId]) ? metadataPayload[videoId] : {};
+    metadataPayload[videoId] = {
+        ...existingMetadata,
+        noteCount: filteredNotes.length,
+        updatedAt: Date.now()
+    };
+
+    await persistNotesPayload(notesPayload, metadataPayload);
+};
+
+const handleVideoDelete = async (videoId) => {
+    if (!videoId) {
+        return;
+    }
+
+    try {
+        await deleteVideoFromStorage(videoId);
+        state.expandedVideos.delete(videoId);
+        await loadVideos();
+    } catch (error) {
+        console.error('Unable to delete video notes', error);
+    }
+};
+
+const handleNoteDelete = async (videoId, noteKey) => {
+    if (!videoId || !noteKey) {
+        return;
+    }
+
+    try {
+        await deleteNoteFromStorage(videoId, noteKey);
+        state.expandedVideos.add(videoId);
+        await loadVideos();
+    } catch (error) {
+        console.error('Unable to delete note', error);
+    }
+};
+
 const normalizeNotes = (videoId, notes) =>
     notes
         .map((note, index) => {
@@ -328,6 +431,11 @@ const normalizeNotes = (videoId, notes) =>
 
             const timestamp = Number(note.timestamp);
             if (!Number.isFinite(timestamp)) {
+                return null;
+            }
+
+            const dedupKey = getNoteDedupKey(note);
+            if (!dedupKey) {
                 return null;
             }
 
@@ -352,7 +460,8 @@ const normalizeNotes = (videoId, notes) =>
                 textLower: trimmedText.toLowerCase(),
                 timestamp,
                 formattedTimestamp: formatTimestamp(timestamp),
-                updatedAt
+                updatedAt,
+                dedupKey
             };
         })
         .filter(Boolean)
@@ -522,6 +631,9 @@ const render = () => {
             listItem.classList.add('video-item--expanded');
         }
 
+        const headerRow = document.createElement('div');
+        headerRow.className = 'video-header-row';
+
         const headerButton = document.createElement('button');
         headerButton.type = 'button';
         headerButton.className = 'video-header';
@@ -552,6 +664,19 @@ const render = () => {
             headerButton.addEventListener('click', () => toggleVideoExpansion(video.videoId));
         }
 
+        const videoDeleteButton = document.createElement('button');
+        videoDeleteButton.type = 'button';
+        videoDeleteButton.className = 'delete-chip video-delete-button';
+        videoDeleteButton.setAttribute('aria-label', `Delete all notes for "${video.title}"`);
+        videoDeleteButton.appendChild(createDeleteIcon());
+        videoDeleteButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleVideoDelete(video.videoId);
+        });
+
+        headerRow.append(headerButton, videoDeleteButton);
+
         const notesList = document.createElement('ul');
         notesList.className = 'notes-list';
 
@@ -564,6 +689,7 @@ const render = () => {
             noteButton.className = 'note-button';
             noteButton.dataset.videoId = video.videoId;
             noteButton.dataset.timestamp = note.timestamp.toString();
+            noteButton.dataset.noteKey = note.dedupKey;
 
             noteButton.addEventListener('click', () => openNote(video.videoId, note.timestamp));
 
@@ -575,12 +701,23 @@ const render = () => {
             textSpan.className = 'note-button__text';
             textSpan.textContent = note.text;
 
+            const noteDeleteButton = document.createElement('button');
+            noteDeleteButton.type = 'button';
+            noteDeleteButton.className = 'delete-chip note-delete-button';
+            noteDeleteButton.setAttribute('aria-label', `Delete note at ${note.formattedTimestamp}`);
+            noteDeleteButton.appendChild(createDeleteIcon());
+            noteDeleteButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleNoteDelete(video.videoId, note.dedupKey);
+            });
+
             noteButton.append(timestampSpan, textSpan);
-            noteItem.appendChild(noteButton);
+            noteItem.append(noteButton, noteDeleteButton);
             notesList.appendChild(noteItem);
         });
 
-        listItem.append(headerButton, notesList);
+        listItem.append(headerRow, notesList);
         videoList.appendChild(listItem);
     });
 };

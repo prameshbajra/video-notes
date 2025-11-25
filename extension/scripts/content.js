@@ -1526,7 +1526,8 @@ const assignVideoElement = () => {
     return video;
 };
 
-const refreshNotesForCurrentVideo = async () => {
+const refreshNotesForCurrentVideo = async (options = {}) => {
+    const { forceReload = false } = options;
     const videoId = getVideoIdFromLocation();
     if (!videoId) {
         if (state.videoId !== null) {
@@ -1540,7 +1541,9 @@ const refreshNotesForCurrentVideo = async () => {
         return;
     }
 
-    if (state.videoId === videoId) {
+    const shouldReloadNotes = forceReload || state.videoId !== videoId;
+
+    if (!shouldReloadNotes) {
         assignVideoElement();
         renderNotesTrack();
         return;
@@ -1648,12 +1651,50 @@ const handleRouteChange = () => {
     }
 };
 
+const handleStorageChange = (changes, areaName) => {
+    if (areaName !== 'local') {
+        return;
+    }
+
+    const notesChange = changes[NOTES_STORAGE_KEY];
+    if (!notesChange) {
+        return;
+    }
+
+    const videoId = state.videoId;
+    if (!videoId) {
+        return;
+    }
+
+    const hasNew =
+        notesChange.newValue &&
+        typeof notesChange.newValue === 'object' &&
+        Object.prototype.hasOwnProperty.call(notesChange.newValue, videoId);
+    const hasOld =
+        notesChange.oldValue &&
+        typeof notesChange.oldValue === 'object' &&
+        Object.prototype.hasOwnProperty.call(notesChange.oldValue, videoId);
+
+    if (!hasNew && !hasOld) {
+        return;
+    }
+
+    refreshNotesForCurrentVideo({ forceReload: true }).catch(() => {});
+};
+
 const initialize = () => {
     attachResponsiveListeners();
     attachShortcutListener();
     watchThemeChanges();
     handleThemeChange();
     handleRouteChange();
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener(handleStorageChange);
+        window.addEventListener('unload', () => {
+            chrome.storage.onChanged.removeListener(handleStorageChange);
+        });
+    }
 };
 
 initialize();

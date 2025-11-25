@@ -7,6 +7,9 @@
     --divider: #dadce0;
     --accent: #2563eb;
     --accent-muted: rgba(37, 99, 235, 0.14);
+    --danger: #c43a3a;
+    --danger-muted: rgba(196, 58, 58, 0.12);
+    --danger-border: rgba(196, 58, 58, 0.32);
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -19,6 +22,9 @@
         --divider: rgba(241, 243, 244, 0.12);
         --accent: #60a5fa;
         --accent-muted: rgba(96, 165, 250, 0.14);
+        --danger: #f87171;
+        --danger-muted: rgba(248, 113, 113, 0.18);
+        --danger-border: rgba(248, 113, 113, 0.45);
         --shadow: 0 6px 24px rgba(0, 0, 0, 0.32);
     }
 }
@@ -217,8 +223,16 @@ body {
     transform: rotate(180deg);
 }
 
+.video-header-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 8px 0;
+}
+
 .video-header {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     border: none;
     background: transparent;
     display: flex;
@@ -272,7 +286,7 @@ body {
 .notes-list {
     list-style: none;
     margin: 0;
-    padding: 0 0 12px;
+    padding: 0 6px 12px;
     display: none;
 }
 
@@ -283,11 +297,14 @@ body {
 }
 
 .note-item {
-    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .note-button {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 10px;
     padding: 10px 12px;
@@ -325,6 +342,59 @@ body {
     -webkit-box-orient: vertical;
 }
 
+.delete-chip {
+    border: 1px solid var(--divider);
+    background-color: var(--surface);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 0;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+.delete-chip:hover,
+.delete-chip:focus-visible {
+    outline: none;
+    color: var(--danger);
+    border-color: var(--danger-border);
+    background-color: var(--danger-muted);
+    opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent-muted);
+    transform: translateY(-1px);
+}
+
+.delete-button__icon {
+    width: 14px;
+    height: 14px;
+}
+
+.video-delete-button,
+.note-delete-button {
+    flex-shrink: 0;
+}
+
+.video-delete-button {
+    opacity: 1;
+}
+
+.video-header-row:hover .video-delete-button,
+.video-delete-button:focus-visible {
+    opacity: 1;
+}
+
+.note-item:hover .note-delete-button,
+.note-button:hover + .note-delete-button,
+.note-button:focus-visible + .note-delete-button,
+.note-delete-button:focus-visible {
+    opacity: 1;
+}
+
 @media (prefers-color-scheme: dark) {
     .note-button {
         border-color: rgba(241, 243, 244, 0.08);
@@ -335,5 +405,10 @@ body {
     .note-button:focus {
         border-color: var(--accent);
         background-color: rgba(96, 165, 250, 0.1);
+    }
+
+    .delete-chip {
+        border-color: rgba(241, 243, 244, 0.16);
+        background-color: rgba(255, 255, 255, 0.04);
     }
 }
