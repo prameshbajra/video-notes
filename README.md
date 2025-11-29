@@ -1,26 +1,28 @@
 # Video Notes
 
-Video Notes is a lightweight YouTube companion that ships two pieces from this repo:
+Video Notes is a lightweight YouTube companion: take timestamped annotations inline on `youtube.com/watch`, see them as timeline markers, and browse/search everything from the popup.
 
-- `extension/` &mdash; a Manifest V3 Chrome/Chromium + Firefox extension that injects an inline note workspace, timeline markers, and a popup dashboard for searchable, timestamped annotations.
-- `landing/` &mdash; a static page (HTML/CSS/JS only) used for sharing the feature tour and installation instructions.
+## What’s in this repo
+- `extension/`: Manifest V3 Chrome/Chromium + Firefox extension written in TypeScript. `scripts/content.ts` injects the notes UI, `popup/popup.ts` powers the action popup, `background.ts` is a placeholder worker, and build outputs go to `extension/dist/`.
+- Static landing page at the repo root (`index.html`, `index.css`, `index.js`, `privacy.html`) that explains the feature tour and links to installs.
+- Contributor guidance lives in `AGENTS.md`; deeper architecture notes are in `extension/README.md`.
 
-## Quick start
+## Install / try it
+- Chrome Web Store: https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom
+- Website with tour + install links: https://prameshbajra.github.io/video-notes/
+- Demo video (60s): https://www.youtube.com/watch?v=rOi7xQ8DLpo
 
-### Install
-Install it from the web store: https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom
+## Develop locally
+1. `npm install`
+2. `npm run dev` for TypeScript watch output into `extension/dist/`.
+3. `npm run build` to clean/copy assets and produce a fresh `extension/dist/`.
+4. Checks: `npm run typecheck` (strict TS) and `npm run lint` (ESLint).
+5. Optional: `npx web-ext run --source-dir extension/dist --target chromium|firefox-desktop` to smoke-test, `npx web-ext lint --source-dir extension/dist` before packaging.
 
-or from the website : https://prameshbajra.github.io/video-notes/
+## Load the extension for testing
+1. Run `npm run build` (or keep `npm run dev` running).
+2. **Chromium (Chrome/Edge/Brave):** open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select `extension/dist`.
+3. **Firefox:** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and pick `extension/dist/manifest.json`. The manifest declares `browser_specific_settings.gecko.id` (`video-notes@prameshbajra`).
 
-### Demo video
-60-second video: https://www.youtube.com/watch?v=rOi7xQ8DLpo
-
-
-### Extension
-1. **Chromium (Chrome/Edge/Brave):** open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**. Select the `extension` folder; the content script activates automatically on `youtube.com/watch`.
-2. **Firefox:** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and pick `extension/manifest.json`. The manifest already includes `browser_specific_settings` for Firefox (`video-notes@prameshbajra`); change it if you prefer a different ID before signing/uploading.
-3. For a deeper dive into storage, popup behavior, and helper scripts, see `extension/README.md`.
-
-### Landing page
-2. Serve the root folder with any static server, e.g. `npx serve .` or `python3 -m http.server` or just open `index.html` in your browser like we are in the 90s.
-3. Deploys cleanly to any static host (GitHub Pages) because it has no build step or dependencies.
+## Landing page
+Serve the repo root with any static server (e.g. `npx serve .` or `python3 -m http.server`) or just open `index.html`.

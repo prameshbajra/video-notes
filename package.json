@@ -1,0 +1,21 @@
+{
+  "name": "video-notes",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node extension/tools/build.mjs",
+    "dev": "tsc --watch -p extension/tsconfig.json",
+    "typecheck": "tsc --noEmit -p extension/tsconfig.json",
+    "lint": "eslint \"extension/**/*.{ts,js,mjs}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/chrome": "^0.1.31",
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0"
+  }
+}
