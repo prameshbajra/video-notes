@@ -5,6 +5,7 @@
     const PREVIEW_TOOLTIP_ID = 'video-notes-preview';
     const NOTES_STORAGE_KEY = 'videoNotes:notes';
     const METADATA_STORAGE_KEY = 'videoNotes:metadata';
+    const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
     const OBSERVER_OPTIONS = { childList: true, subtree: true };
     const VIDEO_EVENTS = ['loadedmetadata', 'durationchange'];
     const TOOLTIP_OFFSET = 12;
@@ -20,7 +21,8 @@
         tooltipAnchor: null,
         previewAnchor: null,
         previewNoteId: null,
-        resumePlaybackVideo: null
+        resumePlaybackVideo: null,
+        isEnabled: true
     };
 
     const ui: UiElements = {
@@ -775,6 +777,8 @@
         return null;
     };
 
+    const resolveEnabledSetting = (value: unknown): boolean => value !== false;
+
     const getStorageArea = (): chrome.storage.LocalStorageArea | null => {
         const hasRuntime =
             typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.id === 'string';
@@ -782,6 +786,27 @@
             return chrome.storage.local;
         }
         return null;
+    };
+
+    const getNotesEnabledSetting = (): Promise<boolean> => {
+        const storage = getStorageArea();
+        if (!storage) {
+            return Promise.resolve(true);
+        }
+
+        return new Promise((resolve) => {
+            try {
+                storage.get([ENABLED_STORAGE_KEY], (result) => {
+                    if (chrome.runtime && chrome.runtime.lastError) {
+                        resolve(true);
+                        return;
+                    }
+                    resolve(resolveEnabledSetting(result[ENABLED_STORAGE_KEY]));
+                });
+            } catch {
+                resolve(true);
+            }
+        });
     };
 
     const getStoredNotes = (): Promise<NotesIndex> => {
@@ -1270,6 +1295,10 @@
     };
 
     const renderNotesTrack = (): void => {
+        if (!state.isEnabled) {
+            return;
+        }
+
         if (!ui.track) {
             return;
         }
@@ -1436,6 +1465,10 @@
     };
 
     const handleAddButtonClick = (): void => {
+        if (!state.isEnabled) {
+            return;
+        }
+
         const video = state.video || getVideoElement();
         if (!video) {
             return;
@@ -1452,6 +1485,10 @@
     };
 
     const handleShortcutKeydown = (event: KeyboardEvent): void => {
+        if (!state.isEnabled) {
+            return;
+        }
+
         if (event.defaultPrevented) {
             return;
         }
@@ -1617,6 +1654,10 @@
 
     const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = {}): Promise<void> => {
         const { forceReload = false } = options;
+        if (!state.isEnabled) {
+            return;
+        }
+
         const videoId = getVideoIdFromLocation();
         if (!videoId) {
             if (state.videoId !== null) {
@@ -1702,6 +1743,10 @@
     };
 
     const ensureUiReady = (videoIdOverride?: string): boolean => {
+        if (!state.isEnabled) {
+            return false;
+        }
+
         const videoId = typeof videoIdOverride === 'string' ? videoIdOverride : getVideoIdFromLocation();
         if (!videoId) {
             return false;
@@ -1717,6 +1762,44 @@
         return true;
     };
 
+    const teardownUi = (): void => {
+        closeTooltip();
+        hideNotePreview();
+        observer.disconnect();
+        detachVideoListeners();
+
+        const container = ui.container;
+        if (container && container.parentElement) {
+            container.remove();
+        }
+
+        ui.container = null;
+        ui.addButton = null;
+        ui.track = null;
+        ui.trackBaseline = null;
+        ui.tooltip = null;
+        ui.textarea = null;
+        ui.deleteButton = null;
+        ui.cancelButton = null;
+        ui.saveButton = null;
+        ui.heading = null;
+        ui.timestampLabel = null;
+        ui.emptyState = null;
+        ui.previewTooltip = null;
+        ui.previewText = null;
+
+        state.video = null;
+        state.videoId = null;
+        state.notes = [];
+        state.tooltipMode = null;
+        state.activeNoteId = null;
+        state.pendingTimestamp = null;
+        state.tooltipAnchor = null;
+        state.previewAnchor = null;
+        state.previewNoteId = null;
+        state.resumePlaybackVideo = null;
+    };
+
     const observer = new MutationObserver(() => {
         if (ensureUiReady()) {
             observer.disconnect();
@@ -1728,11 +1811,20 @@
             return;
         }
 
+        if (!state.isEnabled) {
+            return;
+        }
+
         observer.disconnect();
         observer.observe(document.body, OBSERVER_OPTIONS);
     };
 
     const handleRouteChange = (): void => {
+        if (!state.isEnabled) {
+            teardownUi();
+            return;
+        }
+
         refreshNotesForCurrentVideo().catch(() => { });
         const videoId = getVideoIdFromLocation();
         if (!videoId) {
@@ -1745,11 +1837,30 @@
         }
     };
 
+    const applyEnabledState = (isEnabled: boolean): void => {
+        state.isEnabled = isEnabled;
+        if (!isEnabled) {
+            teardownUi();
+            return;
+        }
+
+        handleRouteChange();
+    };
+
     const handleStorageChange = (
         changes: Record<string, chrome.storage.StorageChange>,
         areaName: string
     ): void => {
         if (areaName !== 'local') {
+            return;
+        }
+
+        if (changes[ENABLED_STORAGE_KEY]) {
+            const nextEnabled = resolveEnabledSetting(changes[ENABLED_STORAGE_KEY].newValue);
+            applyEnabledState(nextEnabled);
+        }
+
+        if (!state.isEnabled) {
             return;
         }
 
@@ -1779,12 +1890,15 @@
         refreshNotesForCurrentVideo({ forceReload: true }).catch(() => { });
     };
 
-    const initialize = (): void => {
+    const initialize = async (): Promise<void> => {
         attachResponsiveListeners();
         attachShortcutListener();
         watchThemeChanges();
         handleThemeChange();
-        handleRouteChange();
+
+        const isEnabled = await getNotesEnabledSetting();
+        applyEnabledState(isEnabled);
+
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
             chrome.storage.onChanged.addListener(handleStorageChange);
             window.addEventListener('unload', () => {
@@ -1793,7 +1907,10 @@
         }
     };
 
-    initialize();
+    initialize().catch(() => {
+        state.isEnabled = true;
+        handleRouteChange();
+    });
 
     ['yt-navigate-finish', 'yt-page-data-updated'].forEach((eventName) => {
         window.addEventListener(eventName, handleRouteChange);

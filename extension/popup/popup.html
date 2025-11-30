@@ -6,15 +6,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Video Notes</title>
         <link rel="stylesheet" href="popup.css" />
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-N5RQHB4986"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag() { dataLayer.push(arguments); }
-            gtag('js', new Date());
-
-            gtag('config', 'G-N5RQHB4986');
-        </script>
     </head>
 
     <body>
@@ -22,9 +13,15 @@
             <header class="header">
                 <div class="header__row">
                     <h1 class="header__title">Video Notes</h1>
-                    <button id="settings-button" class="icon-button" type="button" aria-label="Open settings">
-                        <span aria-hidden="true">⚙️</span>
-                    </button>
+                    <div class="header__actions">
+                        <button id="open-page-button" class="pill-button" type="button">
+                            Open page
+                            <span aria-hidden="true">↗</span>
+                        </button>
+                        <button id="settings-button" class="icon-button" type="button" aria-label="Open settings">
+                            <span aria-hidden="true">⚙️</span>
+                        </button>
+                    </div>
                 </div>
                 <input id="search-input" class="header__search" type="search" placeholder="Search videos or notes" autocomplete="off" />
             </header>
@@ -34,6 +31,19 @@
             </div>
             <div id="settings-view" class="view">
                 <button id="back-button" class="back-button" type="button">← Back</button>
+                <div class="settings-content">
+                    <h2 class="settings-content__title">Video notes</h2>
+                    <p class="settings-content__description">
+                        Toggle the overlay on YouTube watch pages.
+                    </p>
+                    <label class="toggle">
+                        <div class="toggle__text">
+                            <span class="toggle__title">Enable video notes</span>
+                            <span class="toggle__description">Hide the timeline controls when off.</span>
+                        </div>
+                        <input id="enable-notes-toggle" class="toggle__input" type="checkbox" checked />
+                    </label>
+                </div>
                 <div class="settings-content">
                     <h2 class="settings-content__title">Data backup</h2>
                     <p class="settings-content__description">

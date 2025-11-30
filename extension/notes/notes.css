@@ -1,0 +1,84 @@
+:root {
+    color-scheme: light dark;
+}
+
+body[data-view-context="page"] {
+    min-height: 100vh;
+    min-width: 320px;
+    padding: 8px;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.06), transparent 40%),
+        radial-gradient(circle at 80% 0%, rgba(196, 58, 58, 0.05), transparent 35%),
+        var(--background);
+}
+
+.app--page {
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 20px 18px 28px;
+    min-height: calc(100vh - 16px);
+    gap: 16px;
+}
+
+.header--page {
+    gap: 6px;
+}
+
+.header__row--page {
+    align-items: flex-end;
+}
+
+.header__title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.header__eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+
+.header__title--page {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: 0.3px;
+}
+
+.header__subtitle {
+    margin: 0 0 8px;
+    color: var(--muted);
+    max-width: 720px;
+}
+
+.app--page .view {
+    flex: 1;
+}
+
+body[data-view-context="page"] .note-item,
+body[data-view-context="page"] .note-button {
+    align-items: flex-start;
+}
+
+body[data-view-context="page"] .note-button__text {
+    display: block;
+    white-space: pre-line;
+    overflow: visible;
+    text-overflow: initial;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+}
+
+@media (max-width: 720px) {
+    body[data-view-context="page"] {
+        padding: 0;
+        min-width: 0;
+    }
+
+    .app--page {
+        padding: 16px;
+    }
+}
