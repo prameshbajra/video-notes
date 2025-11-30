@@ -99,6 +99,7 @@ interface ExtensionState {
     previewAnchor: HTMLElement | null;
     previewNoteId: string | null;
     resumePlaybackVideo: HTMLVideoElement | null;
+    isEnabled: boolean;
 }
 
 type ViewName = 'notes' | 'settings';
@@ -125,6 +126,7 @@ interface PopupState {
     expandedVideos: Set<string>;
     searchTerm: string;
     activeView: ViewName;
+    isNotesEnabled: boolean;
 }
 
 interface PopupElements {
@@ -133,10 +135,12 @@ interface PopupElements {
     emptyState: HTMLDivElement | null;
     notesView: HTMLDivElement | null;
     settingsView: HTMLDivElement | null;
+    openPageButton: HTMLButtonElement | null;
     settingsButton: HTMLButtonElement | null;
     backButton: HTMLButtonElement | null;
     exportButton: HTMLButtonElement | null;
     importButton: HTMLButtonElement | null;
     importInput: HTMLInputElement | null;
     settingsMessage: HTMLParagraphElement | null;
+    enableToggle: HTMLInputElement | null;
 }

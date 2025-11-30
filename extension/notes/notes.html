@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Video Notes</title>
+        <link rel="stylesheet" href="../popup/popup.css" />
+        <link rel="stylesheet" href="notes.css" />
+    </head>
+
+    <body data-view-context="page">
+        <div class="app app--page">
+            <header class="header header--page">
+                <div class="header__row header__row--page">
+                    <div class="header__title-group">
+                        <p class="header__eyebrow">Video Notes</p>
+                        <h1 class="header__title header__title--page">Saved notes</h1>
+                    </div>
+                </div>
+                <p class="header__subtitle">Search and revisit every note you've saved while watching YouTube.</p>
+                <input id="search-input" class="header__search" type="search" placeholder="Search videos or notes" autocomplete="off" />
+            </header>
+            <div id="notes-view" class="view view--active">
+                <div id="empty-state" class="empty-state" hidden></div>
+                <ul id="video-list" class="video-list"></ul>
+            </div>
+        </div>
+        <script type="module" src="../popup/popup.js"></script>
+    </body>
+
+</html>

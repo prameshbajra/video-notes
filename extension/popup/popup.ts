@@ -1,14 +1,20 @@
 (() => {
     const NOTES_STORAGE_KEY = 'videoNotes:notes';
     const METADATA_STORAGE_KEY = 'videoNotes:metadata';
+    const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
     const VIEW_NOTES = 'notes';
     const VIEW_SETTINGS = 'settings';
+    const VIEW_CONTEXT_PAGE = 'page';
+    const viewContext: 'popup' | 'page' =
+        document.body.dataset.viewContext === VIEW_CONTEXT_PAGE ? VIEW_CONTEXT_PAGE : 'popup';
+    const shouldCloseOnNavigate = viewContext === 'popup';
 
     const state: PopupState = {
         videos: [],
         expandedVideos: new Set<string>(),
         searchTerm: '',
-        activeView: VIEW_NOTES
+        activeView: VIEW_NOTES,
+        isNotesEnabled: true
     };
 
     const elements: PopupElements = {
@@ -17,15 +23,25 @@
         emptyState: document.getElementById('empty-state') as HTMLDivElement | null,
         notesView: document.getElementById('notes-view') as HTMLDivElement | null,
         settingsView: document.getElementById('settings-view') as HTMLDivElement | null,
+        openPageButton: document.getElementById('open-page-button') as HTMLButtonElement | null,
         settingsButton: document.getElementById('settings-button') as HTMLButtonElement | null,
         backButton: document.getElementById('back-button') as HTMLButtonElement | null,
         exportButton: document.getElementById('export-button') as HTMLButtonElement | null,
         importButton: document.getElementById('import-button') as HTMLButtonElement | null,
         importInput: document.getElementById('import-input') as HTMLInputElement | null,
-        settingsMessage: document.getElementById('settings-message') as HTMLParagraphElement | null
+        settingsMessage: document.getElementById('settings-message') as HTMLParagraphElement | null,
+        enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null
     };
 
     const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'] as const;
+    const resolveEnabledSetting = (value: unknown): boolean => value !== false;
+
+    const syncNotesToggle = (isEnabled: boolean): void => {
+        state.isNotesEnabled = isEnabled;
+        if (elements.enableToggle) {
+            elements.enableToggle.checked = isEnabled;
+        }
+    };
 
     const isPlainObject = (value: unknown): value is Record<string, unknown> =>
         Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -150,6 +166,22 @@
                     resolve(undefined);
                 }
             );
+        });
+
+    const persistNotesEnabled = (isEnabled: boolean): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+                reject(new Error('Storage unavailable'));
+                return;
+            }
+
+            chrome.storage.local.set({ [ENABLED_STORAGE_KEY]: isEnabled }, () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve(undefined);
+            });
         });
 
     const getNoteDedupKey = (note: StoredNote): string | null => {
@@ -308,6 +340,12 @@
         reader.readAsText(file);
     };
 
+    const handleNotesToggleChange = (event: Event): void => {
+        const target = event.target as HTMLInputElement | null;
+        const isEnabled = target ? target.checked : true;
+        updateNotesEnabled(isEnabled).catch(() => { });
+    };
+
     const formatTimestamp = (value: number): string => {
         if (!Number.isFinite(value)) {
             return '00:00';
@@ -335,7 +373,7 @@
                 return;
             }
 
-            chrome.storage.local.get([NOTES_STORAGE_KEY, METADATA_STORAGE_KEY], (result) => {
+            chrome.storage.local.get([NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY], (result) => {
                 if (chrome.runtime && chrome.runtime.lastError) {
                     resolve({});
                     return;
@@ -343,6 +381,24 @@
                 resolve((result || {}) as StorageSnapshot);
             });
         });
+
+    const loadNotesEnabledFromStorage = async (): Promise<void> => {
+        const snapshot = await getStorageSnapshot();
+        const isEnabled = resolveEnabledSetting(snapshot[ENABLED_STORAGE_KEY]);
+        syncNotesToggle(isEnabled);
+    };
+
+    const updateNotesEnabled = async (isEnabled: boolean): Promise<void> => {
+        const previousValue = state.isNotesEnabled;
+        syncNotesToggle(isEnabled);
+
+        try {
+            await persistNotesEnabled(isEnabled);
+        } catch {
+            syncNotesToggle(previousValue);
+            setSettingsMessage('Unable to update video notes setting.', 'error');
+        }
+    };
 
     const persistNotesPayload = async (notesPayload: NotesIndex, metadataPayload: MetadataIndex): Promise<void> => {
         await persistBackupPayload(notesPayload, metadataPayload);
@@ -603,13 +659,42 @@
                     setSettingsMessage('Unable to open video', 'error');
                     return;
                 }
-                window.close();
+                if (shouldCloseOnNavigate) {
+                    window.close();
+                }
             });
             return;
         }
 
         window.open(targetUrl.toString(), '_blank', 'noopener');
-        window.close();
+        if (shouldCloseOnNavigate) {
+            window.close();
+        }
+    };
+
+    const openNotesPage = (): void => {
+        const targetUrl =
+            typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL
+                ? chrome.runtime.getURL('notes/notes.html')
+                : 'notes/notes.html';
+
+        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+            chrome.tabs.create({ url: targetUrl }, () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    setSettingsMessage('Unable to open notes page', 'error');
+                    return;
+                }
+                if (shouldCloseOnNavigate) {
+                    window.close();
+                }
+            });
+            return;
+        }
+
+        window.open(targetUrl, '_blank', 'noopener');
+        if (shouldCloseOnNavigate) {
+            window.close();
+        }
     };
 
     const render = (): void => {
@@ -767,6 +852,11 @@
             return;
         }
 
+        if (changes[ENABLED_STORAGE_KEY]) {
+            const nextEnabled = resolveEnabledSetting(changes[ENABLED_STORAGE_KEY].newValue);
+            syncNotesToggle(nextEnabled);
+        }
+
         if (changes[NOTES_STORAGE_KEY] || changes[METADATA_STORAGE_KEY]) {
             loadVideos();
         }
@@ -774,9 +864,16 @@
 
     const initialize = (): void => {
         syncViewVisibility();
+        loadNotesEnabledFromStorage().catch(() => {
+            syncNotesToggle(true);
+        });
 
         if (elements.searchInput) {
             elements.searchInput.addEventListener('input', handleSearchInput);
+        }
+
+        if (elements.openPageButton) {
+            elements.openPageButton.addEventListener('click', openNotesPage);
         }
 
         if (elements.settingsButton) {
@@ -797,6 +894,10 @@
 
         if (elements.importInput) {
             elements.importInput.addEventListener('change', handleImportFileChange);
+        }
+
+        if (elements.enableToggle) {
+            elements.enableToggle.addEventListener('change', handleNotesToggleChange);
         }
 
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {

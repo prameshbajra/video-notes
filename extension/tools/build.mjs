@@ -17,7 +17,7 @@ if (tscResult.status !== 0) {
   process.exit(tscResult.status ?? 1);
 }
 
-const staticAssets = ['manifest.json', 'icons', 'popup/popup.html', 'popup/popup.css'];
+const staticAssets = ['manifest.json', 'icons', 'popup/popup.html', 'popup/popup.css', 'notes'];
 
 for (const asset of staticAssets) {
   const source = path.join(extensionRoot, asset);

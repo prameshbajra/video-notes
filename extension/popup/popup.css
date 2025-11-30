@@ -65,6 +65,12 @@ body {
     gap: 8px;
 }
 
+.header__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .header__title {
     margin: 0;
     font-size: 18px;
@@ -88,6 +94,32 @@ body {
 .icon-button:focus {
     outline: none;
     background-color: var(--accent-muted);
+}
+
+.pill-button {
+    border: 1px solid var(--divider);
+    background-color: var(--surface);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 7px 12px;
+    border-radius: 999px;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 120ms ease, box-shadow 120ms ease, color 120ms ease, transform 120ms ease, background-color 120ms ease;
+}
+
+.pill-button:hover,
+.pill-button:focus-visible {
+    outline: none;
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+    background-color: rgba(37, 99, 235, 0.08);
+    transform: translateY(-1px);
 }
 
 .header__search {
@@ -165,6 +197,79 @@ body {
 .settings-content__description {
     margin: 0 0 12px;
     color: var(--muted);
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--divider);
+    background-color: var(--surface);
+    cursor: pointer;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.toggle:hover,
+.toggle:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.toggle__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.toggle__title {
+    font-weight: 600;
+}
+
+.toggle__description {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.toggle__input {
+    position: relative;
+    width: 46px;
+    height: 26px;
+    appearance: none;
+    background-color: var(--divider);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 120ms ease, box-shadow 120ms ease;
+    flex-shrink: 0;
+}
+
+.toggle__input::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+    transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.toggle__input:checked {
+    background-color: var(--accent);
+}
+
+.toggle__input:checked::after {
+    transform: translateX(20px);
+    background-color: #ffffff;
+}
+
+.toggle__input:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 .settings-actions {
