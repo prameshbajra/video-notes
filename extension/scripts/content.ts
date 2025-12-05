@@ -3,6 +3,7 @@
     const TRACK_ID = 'video-notes-track';
     const TOOLTIP_ID = 'video-notes-tooltip';
     const PREVIEW_TOOLTIP_ID = 'video-notes-preview';
+    const TRACK_HOVER_TOOLTIP_ID = 'video-notes-track-hover';
     const NOTES_STORAGE_KEY = 'videoNotes:notes';
     const METADATA_STORAGE_KEY = 'videoNotes:metadata';
     const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
@@ -39,7 +40,8 @@
         timestampLabel: null,
         emptyState: null,
         previewTooltip: null,
-        previewText: null
+        previewText: null,
+        trackHoverTooltip: null
     };
 
     const themePalettes: Record<ThemeMode, ThemePalette> = {
@@ -103,6 +105,7 @@
     let globalListenersAttached = false;
     let shortcutListenerAttached = false;
     let tooltipDismissCleanup: (() => void) | null = null;
+    let lastTrackHoverClientX: number | null = null;
 
     const applyStyles = (element: HTMLElement, styles: Partial<CSSStyleDeclaration>): void => {
         Object.assign(element.style, styles);
@@ -447,6 +450,12 @@
             ui.previewText.style.border = palette.previewBorder;
             ui.previewText.style.boxShadow = palette.previewShadow;
         }
+        if (ui.trackHoverTooltip) {
+            ui.trackHoverTooltip.style.backgroundColor = palette.previewBackground;
+            ui.trackHoverTooltip.style.color = palette.previewText;
+            ui.trackHoverTooltip.style.border = palette.previewBorder;
+            ui.trackHoverTooltip.style.boxShadow = palette.previewShadow;
+        }
     };
 
     const createTooltip = (
@@ -613,6 +622,32 @@
         return { previewTooltip: wrapper, previewText: bubble };
     };
 
+    const createTrackHoverTooltip = (palette: ThemePalette): HTMLDivElement => {
+        const tooltip = document.createElement('div');
+        tooltip.id = TRACK_HOVER_TOOLTIP_ID;
+        tooltip.setAttribute('aria-hidden', 'true');
+        applyStyles(tooltip, {
+            position: 'absolute',
+            top: '0',
+            left: '0',
+            display: 'none',
+            padding: '6px 8px',
+            borderRadius: '8px',
+            backgroundColor: palette.previewBackground,
+            color: palette.previewText,
+            fontSize: '12px',
+            lineHeight: '1.2',
+            boxShadow: palette.previewShadow,
+            border: palette.previewBorder,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: '4999',
+            transition: 'transform 120ms ease, opacity 120ms ease'
+        });
+
+        return tooltip;
+    };
+
     const createContainer = (palette: ThemePalette): UiElements => {
         const container = document.createElement('div');
         container.id = CONTAINER_ID;
@@ -706,10 +741,12 @@
             saveButton
         } = createTooltip(palette);
         const { previewTooltip, previewText } = createPreviewTooltip(palette);
+        const trackHoverTooltip = createTrackHoverTooltip(palette);
 
         container.appendChild(header);
         container.appendChild(track);
         container.appendChild(emptyState);
+        container.appendChild(trackHoverTooltip);
         if (tooltip) {
             container.appendChild(tooltip);
         }
@@ -731,7 +768,8 @@
             cancelButton,
             saveButton,
             previewTooltip,
-            previewText
+            previewText,
+            trackHoverTooltip
         };
     };
 
@@ -1174,12 +1212,95 @@
         positionPreviewTooltip();
     };
 
+    const hideTrackHoverTooltip = (options: { force?: boolean } = {}): void => {
+        const { force = false } = options;
+        if (!ui.trackHoverTooltip) {
+            return;
+        }
+
+        if (
+            !force &&
+            state.tooltipAnchor === ui.trackHoverTooltip &&
+            ui.tooltip &&
+            ui.tooltip.style.display === 'flex'
+        ) {
+            return;
+        }
+
+        ui.trackHoverTooltip.style.display = 'none';
+        ui.trackHoverTooltip.style.opacity = '0';
+        ui.trackHoverTooltip.style.transform = 'translateY(2px)';
+        ui.trackHoverTooltip.textContent = '';
+        lastTrackHoverClientX = null;
+    };
+
+    const updateTrackHoverTooltip = (clientX: number): number | null => {
+        if (!ui.track || !ui.trackHoverTooltip || !ui.container || !state.isEnabled) {
+            return null;
+        }
+
+        const video = state.video || getVideoElement();
+        if (video && !state.video) {
+            state.video = video;
+        }
+        const duration =
+            video && Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+        if (!duration) {
+            hideTrackHoverTooltip({ force: true });
+            return null;
+        }
+
+        const trackRect = ui.track.getBoundingClientRect();
+        if (!Number.isFinite(trackRect.width) || trackRect.width <= 0) {
+            hideTrackHoverTooltip({ force: true });
+            return null;
+        }
+
+        const clampedX = Math.min(Math.max(clientX, trackRect.left), trackRect.right);
+        const positionRatio = (clampedX - trackRect.left) / trackRect.width;
+        const timestamp = duration * positionRatio;
+        lastTrackHoverClientX = clampedX;
+
+        ui.trackHoverTooltip.textContent = `@ ${formatTimestamp(timestamp)}`;
+        ui.trackHoverTooltip.style.display = 'block';
+        ui.trackHoverTooltip.style.visibility = 'hidden';
+        ui.trackHoverTooltip.style.opacity = '1';
+        ui.trackHoverTooltip.style.transform = 'translateY(0)';
+
+        const containerRect = ui.container.getBoundingClientRect();
+        const tooltipRect = ui.trackHoverTooltip.getBoundingClientRect();
+
+        const viewportSpaceAbove = trackRect.top;
+        const viewportSpaceBelow = window.innerHeight - trackRect.bottom;
+        let top = trackRect.top - containerRect.top - tooltipRect.height - PREVIEW_OFFSET;
+        if (
+            !Number.isFinite(top) ||
+            (viewportSpaceAbove < tooltipRect.height + PREVIEW_OFFSET && viewportSpaceBelow > viewportSpaceAbove)
+        ) {
+            top = trackRect.bottom - containerRect.top + PREVIEW_OFFSET;
+        }
+
+        const centerX = clampedX - containerRect.left;
+        let left = centerX - tooltipRect.width / 2;
+        const maxLeft = Math.max(containerRect.width - tooltipRect.width, 0);
+        left = Math.min(Math.max(left, 0), maxLeft);
+
+        ui.trackHoverTooltip.style.top = `${top}px`;
+        ui.trackHoverTooltip.style.left = `${left}px`;
+        ui.trackHoverTooltip.style.visibility = 'visible';
+
+        return timestamp;
+    };
+
     const repositionTooltip = (): void => {
         if (ui.tooltip && ui.tooltip.style.display === 'flex') {
             positionTooltip(state.tooltipAnchor);
         }
 
         positionPreviewTooltip();
+        if (ui.trackHoverTooltip && ui.trackHoverTooltip.style.display === 'block' && lastTrackHoverClientX !== null) {
+            updateTrackHoverTooltip(lastTrackHoverClientX);
+        }
     };
 
     const attachResponsiveListeners = (): void => {
@@ -1464,6 +1585,49 @@
         openTooltip({ mode: 'edit', timestamp: note.timestamp, note, anchor });
     };
 
+    const handleTrackMouseMove = (event: MouseEvent): void => {
+        if (!state.isEnabled) {
+            return;
+        }
+
+        if (event.target instanceof Element && event.target.closest('[data-note-id]')) {
+            hideTrackHoverTooltip();
+            return;
+        }
+
+        updateTrackHoverTooltip(event.clientX);
+    };
+
+    const handleTrackMouseLeave = (): void => {
+        hideTrackHoverTooltip();
+    };
+
+    const handleTrackClick = (event: MouseEvent): void => {
+        if (!state.isEnabled) {
+            return;
+        }
+
+        const timestamp = updateTrackHoverTooltip(event.clientX);
+        if (timestamp === null) {
+            return;
+        }
+
+        const video = state.video || getVideoElement();
+        if (!video) {
+            return;
+        }
+        if (!state.video) {
+            state.video = video;
+        }
+
+        const wasPlaying = !video.paused && !video.ended;
+        state.resumePlaybackVideo = wasPlaying ? video : null;
+        video.pause();
+
+        const anchor = ui.trackHoverTooltip && ui.trackHoverTooltip.isConnected ? ui.trackHoverTooltip : ui.track;
+        openTooltip({ mode: 'create', timestamp, note: null, anchor: anchor || undefined });
+    };
+
     const handleAddButtonClick = (): void => {
         if (!state.isEnabled) {
             return;
@@ -1601,8 +1765,8 @@
     };
 
     const attachUiListeners = (): void => {
-        const { addButton, tooltip, cancelButton, saveButton, deleteButton } = ui;
-        if (!addButton || !tooltip || !cancelButton || !saveButton || !deleteButton) {
+        const { addButton, tooltip, cancelButton, saveButton, deleteButton, track } = ui;
+        if (!addButton || !tooltip || !cancelButton || !saveButton || !deleteButton || !track) {
             return;
         }
 
@@ -1611,6 +1775,9 @@
         saveButton.addEventListener('click', handleSave);
         deleteButton.addEventListener('click', handleDelete);
         tooltip.addEventListener('keydown', handleTooltipKeydown);
+        track.addEventListener('mousemove', handleTrackMouseMove);
+        track.addEventListener('mouseleave', handleTrackMouseLeave);
+        track.addEventListener('click', handleTrackClick);
     };
 
     const detachVideoListeners = (): void => {
@@ -1731,6 +1898,7 @@
         ui.saveButton = elements.saveButton;
         ui.previewTooltip = elements.previewTooltip;
         ui.previewText = elements.previewText;
+        ui.trackHoverTooltip = elements.trackHoverTooltip;
 
         if (!elements.container) {
             return false;
@@ -1787,6 +1955,7 @@
         ui.emptyState = null;
         ui.previewTooltip = null;
         ui.previewText = null;
+        ui.trackHoverTooltip = null;
 
         state.video = null;
         state.videoId = null;
@@ -1798,6 +1967,7 @@
         state.previewAnchor = null;
         state.previewNoteId = null;
         state.resumePlaybackVideo = null;
+        lastTrackHoverClientX = null;
     };
 
     const observer = new MutationObserver(() => {

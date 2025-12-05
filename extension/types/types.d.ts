@@ -86,6 +86,7 @@ interface UiElements {
     emptyState: HTMLSpanElement | null;
     previewTooltip: HTMLDivElement | null;
     previewText: HTMLDivElement | null;
+    trackHoverTooltip: HTMLDivElement | null;
 }
 
 interface ExtensionState {
