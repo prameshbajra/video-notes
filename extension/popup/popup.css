@@ -218,6 +218,10 @@ body {
     box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
+.toggle + .toggle {
+    margin-top: 10px;
+}
+
 .toggle__text {
     display: flex;
     flex-direction: column;

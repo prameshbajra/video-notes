@@ -2,6 +2,7 @@
     const NOTES_STORAGE_KEY = 'videoNotes:notes';
     const METADATA_STORAGE_KEY = 'videoNotes:metadata';
     const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
+    const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
     const VIEW_NOTES = 'notes';
     const VIEW_SETTINGS = 'settings';
     const VIEW_CONTEXT_PAGE = 'page';
@@ -14,7 +15,8 @@
         expandedVideos: new Set<string>(),
         searchTerm: '',
         activeView: VIEW_NOTES,
-        isNotesEnabled: true
+        isNotesEnabled: true,
+        isZenModeEnabled: false
     };
 
     const elements: PopupElements = {
@@ -30,16 +32,24 @@
         importButton: document.getElementById('import-button') as HTMLButtonElement | null,
         importInput: document.getElementById('import-input') as HTMLInputElement | null,
         settingsMessage: document.getElementById('settings-message') as HTMLParagraphElement | null,
-        enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null
+        enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null,
+        zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null
     };
 
     const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'] as const;
     const resolveEnabledSetting = (value: unknown): boolean => value !== false;
+    const resolveZenModeSetting = (value: unknown): boolean => value === true;
 
     const syncNotesToggle = (isEnabled: boolean): void => {
         state.isNotesEnabled = isEnabled;
         if (elements.enableToggle) {
             elements.enableToggle.checked = isEnabled;
+        }
+    };
+    const syncZenModeToggle = (isEnabled: boolean): void => {
+        state.isZenModeEnabled = isEnabled;
+        if (elements.zenModeToggle) {
+            elements.zenModeToggle.checked = isEnabled;
         }
     };
 
@@ -176,6 +186,22 @@
             }
 
             chrome.storage.local.set({ [ENABLED_STORAGE_KEY]: isEnabled }, () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve(undefined);
+            });
+        });
+
+    const persistZenModeEnabled = (isEnabled: boolean): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+                reject(new Error('Storage unavailable'));
+                return;
+            }
+
+            chrome.storage.local.set({ [ZEN_MODE_STORAGE_KEY]: isEnabled }, () => {
                 if (chrome.runtime && chrome.runtime.lastError) {
                     reject(new Error(chrome.runtime.lastError.message));
                     return;
@@ -346,6 +372,12 @@
         updateNotesEnabled(isEnabled).catch(() => { });
     };
 
+    const handleZenToggleChange = (event: Event): void => {
+        const target = event.target as HTMLInputElement | null;
+        const isEnabled = Boolean(target?.checked);
+        updateZenModeEnabled(isEnabled).catch(() => { });
+    };
+
     const formatTimestamp = (value: number): string => {
         if (!Number.isFinite(value)) {
             return '00:00';
@@ -373,19 +405,28 @@
                 return;
             }
 
-            chrome.storage.local.get([NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY], (result) => {
-                if (chrome.runtime && chrome.runtime.lastError) {
-                    resolve({});
-                    return;
+            chrome.storage.local.get(
+                [NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY, ZEN_MODE_STORAGE_KEY],
+                (result) => {
+                    if (chrome.runtime && chrome.runtime.lastError) {
+                        resolve({});
+                        return;
+                    }
+                    resolve((result || {}) as StorageSnapshot);
                 }
-                resolve((result || {}) as StorageSnapshot);
-            });
+            );
         });
 
     const loadNotesEnabledFromStorage = async (): Promise<void> => {
         const snapshot = await getStorageSnapshot();
         const isEnabled = resolveEnabledSetting(snapshot[ENABLED_STORAGE_KEY]);
         syncNotesToggle(isEnabled);
+    };
+
+    const loadZenModeFromStorage = async (): Promise<void> => {
+        const snapshot = await getStorageSnapshot();
+        const isZenModeEnabled = resolveZenModeSetting(snapshot[ZEN_MODE_STORAGE_KEY]);
+        syncZenModeToggle(isZenModeEnabled);
     };
 
     const updateNotesEnabled = async (isEnabled: boolean): Promise<void> => {
@@ -397,6 +438,18 @@
         } catch {
             syncNotesToggle(previousValue);
             setSettingsMessage('Unable to update video notes setting.', 'error');
+        }
+    };
+
+    const updateZenModeEnabled = async (isEnabled: boolean): Promise<void> => {
+        const previousValue = state.isZenModeEnabled;
+        syncZenModeToggle(isEnabled);
+
+        try {
+            await persistZenModeEnabled(isEnabled);
+        } catch {
+            syncZenModeToggle(previousValue);
+            setSettingsMessage('Unable to update Zen Mode.', 'error');
         }
     };
 
@@ -857,6 +910,11 @@
             syncNotesToggle(nextEnabled);
         }
 
+        if (changes[ZEN_MODE_STORAGE_KEY]) {
+            const nextZenMode = resolveZenModeSetting(changes[ZEN_MODE_STORAGE_KEY].newValue);
+            syncZenModeToggle(nextZenMode);
+        }
+
         if (changes[NOTES_STORAGE_KEY] || changes[METADATA_STORAGE_KEY]) {
             loadVideos();
         }
@@ -866,6 +924,9 @@
         syncViewVisibility();
         loadNotesEnabledFromStorage().catch(() => {
             syncNotesToggle(true);
+        });
+        loadZenModeFromStorage().catch(() => {
+            syncZenModeToggle(false);
         });
 
         if (elements.searchInput) {
@@ -898,6 +959,10 @@
 
         if (elements.enableToggle) {
             elements.enableToggle.addEventListener('change', handleNotesToggleChange);
+        }
+
+        if (elements.zenModeToggle) {
+            elements.zenModeToggle.addEventListener('change', handleZenToggleChange);
         }
 
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {

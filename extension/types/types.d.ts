@@ -74,6 +74,7 @@ type TooltipMode = 'create' | 'edit' | null;
 interface UiElements {
     container: HTMLDivElement | null;
     addButton: HTMLButtonElement | null;
+    zenButton: HTMLButtonElement | null;
     track: HTMLDivElement | null;
     trackBaseline: HTMLDivElement | null;
     tooltip: HTMLDivElement | null;
@@ -101,6 +102,7 @@ interface ExtensionState {
     previewNoteId: string | null;
     resumePlaybackVideo: HTMLVideoElement | null;
     isEnabled: boolean;
+    isZenModeEnabled: boolean;
 }
 
 type ViewName = 'notes' | 'settings';
@@ -128,6 +130,7 @@ interface PopupState {
     searchTerm: string;
     activeView: ViewName;
     isNotesEnabled: boolean;
+    isZenModeEnabled: boolean;
 }
 
 interface PopupElements {
@@ -144,4 +147,5 @@ interface PopupElements {
     importInput: HTMLInputElement | null;
     settingsMessage: HTMLParagraphElement | null;
     enableToggle: HTMLInputElement | null;
+    zenModeToggle: HTMLInputElement | null;
 }

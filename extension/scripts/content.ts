@@ -7,6 +7,8 @@
     const NOTES_STORAGE_KEY = 'videoNotes:notes';
     const METADATA_STORAGE_KEY = 'videoNotes:metadata';
     const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
+    const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
+    const ZEN_MODE_STYLE_ID = 'video-notes-zen-style';
     const OBSERVER_OPTIONS = { childList: true, subtree: true };
     const VIDEO_EVENTS = ['loadedmetadata', 'durationchange'];
     const TOOLTIP_OFFSET = 12;
@@ -23,12 +25,14 @@
         previewAnchor: null,
         previewNoteId: null,
         resumePlaybackVideo: null,
-        isEnabled: true
+        isEnabled: true,
+        isZenModeEnabled: false
     };
 
     const ui: UiElements = {
         container: null,
         addButton: null,
+        zenButton: null,
         track: null,
         trackBaseline: null,
         tooltip: null,
@@ -101,6 +105,8 @@
     let themeObserver: MutationObserver | null = null;
     let themeMediaQuery: MediaQueryList | null = null;
     let themeAppObserver: MutationObserver | null = null;
+    let zenStyleElement: HTMLStyleElement | null = null;
+    let theaterModeTimeout: number | null = null;
 
     let globalListenersAttached = false;
     let shortcutListenerAttached = false;
@@ -117,6 +123,142 @@
         button.textContent = label;
         applyStyles(button, styles);
         return button;
+    };
+
+    const ZEN_MODE_STYLE = `
+        #primary {
+            min-width: 98% !important;
+        }
+
+        #secondary,
+        ytd-merch-shelf-renderer,
+        #comments,
+        #bottom-row {
+            display: none !important;
+        }
+    `;
+
+    const isTheaterModeActive = (): boolean => {
+        const flexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        if (!flexy) {
+            return false;
+        }
+
+        return (
+            flexy.hasAttribute('theater') ||
+            flexy.getAttribute('theater') === '' ||
+            flexy.classList.contains('theater') ||
+            flexy.classList.contains('theater-mode')
+        );
+    };
+
+    const enableTheaterMode = (): void => {
+        if (isTheaterModeActive()) {
+            return;
+        }
+
+        const sizeButton = document.querySelector<HTMLButtonElement>('.ytp-size-button');
+        if (sizeButton) {
+            sizeButton.click();
+            return;
+        }
+
+        const flexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        if (flexy) {
+            flexy.setAttribute('theater', '');
+            flexy.classList.add('theater', 'theater-mode');
+        }
+    };
+
+    const disableTheaterMode = (): void => {
+        if (!isTheaterModeActive()) {
+            return;
+        }
+
+        const sizeButton = document.querySelector<HTMLButtonElement>('.ytp-size-button');
+        if (sizeButton) {
+            sizeButton.click();
+            return;
+        }
+
+        const flexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        if (flexy) {
+            flexy.removeAttribute('theater');
+            flexy.classList.remove('theater', 'theater-mode');
+        }
+    };
+
+    const clearTheaterModeEnforcement = (): void => {
+        if (theaterModeTimeout !== null) {
+            window.clearTimeout(theaterModeTimeout);
+            theaterModeTimeout = null;
+        }
+    };
+
+    const enforceTheaterMode = (desired: boolean, attempts = 6): void => {
+        clearTheaterModeEnforcement();
+
+        const attemptToggle = (remaining: number): void => {
+            const active = isTheaterModeActive();
+            if (active === desired) {
+                theaterModeTimeout = null;
+                return;
+            }
+
+            if (desired) {
+                enableTheaterMode();
+            } else {
+                disableTheaterMode();
+            }
+
+            if (remaining <= 0) {
+                theaterModeTimeout = null;
+                return;
+            }
+
+            theaterModeTimeout = window.setTimeout(() => attemptToggle(remaining - 1), 300);
+        };
+
+        attemptToggle(attempts);
+    };
+
+    const applyZenModeStyles = (isEnabled: boolean): void => {
+        if (isEnabled) {
+            if (!zenStyleElement || !zenStyleElement.isConnected) {
+                const existing = document.getElementById(ZEN_MODE_STYLE_ID);
+                if (existing instanceof HTMLStyleElement) {
+                    zenStyleElement = existing;
+                }
+            }
+
+            if (!zenStyleElement || !zenStyleElement.isConnected) {
+                const styleElement = document.createElement('style');
+                styleElement.id = ZEN_MODE_STYLE_ID;
+                styleElement.type = 'text/css';
+                const target = document.head || document.documentElement || document.body;
+                if (target) {
+                    target.appendChild(styleElement);
+                }
+                zenStyleElement = styleElement;
+            }
+
+            if (zenStyleElement) {
+                zenStyleElement.textContent = ZEN_MODE_STYLE;
+            }
+            return;
+        }
+
+        if (!zenStyleElement || !zenStyleElement.isConnected) {
+            const existing = document.getElementById(ZEN_MODE_STYLE_ID);
+            if (existing instanceof HTMLStyleElement) {
+                zenStyleElement = existing;
+            }
+        }
+
+        if (zenStyleElement && zenStyleElement.parentElement) {
+            zenStyleElement.parentElement.removeChild(zenStyleElement);
+        }
+        zenStyleElement = null;
     };
 
     const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -403,6 +545,36 @@
         return themeState.palette;
     };
 
+    const syncZenButtonAppearance = (palette: ThemePalette | null): void => {
+        if (!palette || !ui.zenButton) {
+            return;
+        }
+
+        const accent = '#3ea6ff';
+        const isActive = state.isZenModeEnabled;
+        const activeBackground =
+            themeState.mode === 'dark' ? 'rgba(62, 166, 255, 0.2)' : 'rgba(62, 166, 255, 0.12)';
+
+        applyStyles(ui.zenButton, {
+            borderRadius: '999px',
+            padding: '6px 12px',
+            border: isActive ? '1px solid rgba(62, 166, 255, 0.7)' : palette.surfaceBorder,
+            backgroundColor: isActive ? activeBackground : palette.surfaceMuted,
+            color: isActive ? accent : palette.textPrimary,
+            boxShadow: isActive ? '0 4px 12px rgba(62, 166, 255, 0.18)' : 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '13px',
+            fontWeight: '600',
+            lineHeight: '1.2',
+            cursor: 'pointer'
+        });
+
+        ui.zenButton.textContent = isActive ? 'Zen mode on' : 'Zen mode';
+        ui.zenButton.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    };
+
     const applyThemeToUi = (palette: ThemePalette | null): void => {
         if (!palette) {
             return;
@@ -456,6 +628,8 @@
             ui.trackHoverTooltip.style.border = palette.previewBorder;
             ui.trackHoverTooltip.style.boxShadow = palette.previewShadow;
         }
+
+        syncZenButtonAppearance(palette);
     };
 
     const createTooltip = (
@@ -677,6 +851,28 @@
             fontWeight: '600'
         });
 
+        const actions = document.createElement('div');
+        applyStyles(actions, {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+        });
+
+        const zenButton = createButton('Zen mode', {
+            borderRadius: '999px',
+            border: palette.surfaceBorder,
+            backgroundColor: palette.surfaceMuted,
+            color: palette.textPrimary,
+            fontSize: '13px',
+            fontWeight: '600',
+            lineHeight: '1.2',
+            cursor: 'pointer',
+            padding: '6px 12px'
+        });
+        zenButton.id = 'video-notes-zen-button';
+        zenButton.setAttribute('aria-pressed', 'false');
+        zenButton.setAttribute('aria-label', 'Toggle Zen mode');
+
         const addButton = createButton('+ Add note', {
             borderRadius: '999px',
             border: 'none',
@@ -695,7 +891,9 @@
         addButton.setAttribute('aria-label', 'Add a note for the current moment');
 
         header.appendChild(title);
-        header.appendChild(addButton);
+        actions.appendChild(zenButton);
+        actions.appendChild(addButton);
+        header.appendChild(actions);
 
         const track = document.createElement('div');
         track.id = TRACK_ID;
@@ -757,6 +955,7 @@
         return {
             container,
             addButton,
+            zenButton,
             track,
             trackBaseline,
             emptyState,
@@ -816,6 +1015,7 @@
     };
 
     const resolveEnabledSetting = (value: unknown): boolean => value !== false;
+    const resolveZenModeSetting = (value: unknown): boolean => value === true;
 
     const getStorageArea = (): chrome.storage.LocalStorageArea | null => {
         const hasRuntime =
@@ -843,6 +1043,44 @@
                 });
             } catch {
                 resolve(true);
+            }
+        });
+    };
+    
+    const getZenModeSetting = (): Promise<boolean> => {
+        const storage = getStorageArea();
+        if (!storage) {
+            return Promise.resolve(false);
+        }
+
+        return new Promise((resolve) => {
+            try {
+                storage.get([ZEN_MODE_STORAGE_KEY], (result) => {
+                    if (chrome.runtime && chrome.runtime.lastError) {
+                        resolve(false);
+                        return;
+                    }
+                    resolve(resolveZenModeSetting(result[ZEN_MODE_STORAGE_KEY]));
+                });
+            } catch {
+                resolve(false);
+            }
+        });
+    };
+
+    const persistZenModeSetting = (isEnabled: boolean): Promise<void> => {
+        const storage = getStorageArea();
+        if (!storage) {
+            return Promise.resolve();
+        }
+
+        return new Promise((resolve) => {
+            try {
+                storage.set({ [ZEN_MODE_STORAGE_KEY]: isEnabled }, () => {
+                    resolve(undefined);
+                });
+            } catch {
+                resolve(undefined);
             }
         });
     };
@@ -1628,6 +1866,32 @@
         openTooltip({ mode: 'create', timestamp, note: null, anchor: anchor || undefined });
     };
 
+    const applyZenModeState = (isEnabled: boolean): void => {
+        state.isZenModeEnabled = isEnabled;
+        applyZenModeStyles(isEnabled);
+        syncZenButtonAppearance(themeState.palette);
+        if (isEnabled) {
+            enforceTheaterMode(true);
+        } else {
+            enforceTheaterMode(false);
+        }
+    };
+
+    const updateZenModeSetting = async (isEnabled: boolean): Promise<void> => {
+        const previousValue = state.isZenModeEnabled;
+        applyZenModeState(isEnabled);
+
+        try {
+            await persistZenModeSetting(isEnabled);
+        } catch {
+            applyZenModeState(previousValue);
+        }
+    };
+
+    const handleZenButtonClick = (): void => {
+        updateZenModeSetting(!state.isZenModeEnabled).catch(() => { });
+    };
+
     const handleAddButtonClick = (): void => {
         if (!state.isEnabled) {
             return;
@@ -1765,12 +2029,13 @@
     };
 
     const attachUiListeners = (): void => {
-        const { addButton, tooltip, cancelButton, saveButton, deleteButton, track } = ui;
-        if (!addButton || !tooltip || !cancelButton || !saveButton || !deleteButton || !track) {
+        const { addButton, zenButton, tooltip, cancelButton, saveButton, deleteButton, track } = ui;
+        if (!addButton || !zenButton || !tooltip || !cancelButton || !saveButton || !deleteButton || !track) {
             return;
         }
 
         addButton.addEventListener('click', handleAddButtonClick);
+        zenButton.addEventListener('click', handleZenButtonClick);
         cancelButton.addEventListener('click', closeTooltip);
         saveButton.addEventListener('click', handleSave);
         deleteButton.addEventListener('click', handleDelete);
@@ -1886,6 +2151,7 @@
         const elements = createContainer(palette);
         ui.container = elements.container;
         ui.addButton = elements.addButton;
+        ui.zenButton = elements.zenButton;
         ui.track = elements.track;
         ui.trackBaseline = elements.trackBaseline;
         ui.emptyState = elements.emptyState;
@@ -1935,6 +2201,7 @@
         hideNotePreview();
         observer.disconnect();
         detachVideoListeners();
+        clearTheaterModeEnforcement();
 
         const container = ui.container;
         if (container && container.parentElement) {
@@ -1943,6 +2210,7 @@
 
         ui.container = null;
         ui.addButton = null;
+        ui.zenButton = null;
         ui.track = null;
         ui.trackBaseline = null;
         ui.tooltip = null;
@@ -1995,6 +2263,11 @@
             return;
         }
 
+        if (state.isZenModeEnabled) {
+            applyZenModeStyles(true);
+            enforceTheaterMode(true);
+        }
+
         refreshNotesForCurrentVideo().catch(() => { });
         const videoId = getVideoIdFromLocation();
         if (!videoId) {
@@ -2028,6 +2301,11 @@
         if (changes[ENABLED_STORAGE_KEY]) {
             const nextEnabled = resolveEnabledSetting(changes[ENABLED_STORAGE_KEY].newValue);
             applyEnabledState(nextEnabled);
+        }
+
+        if (changes[ZEN_MODE_STORAGE_KEY]) {
+            const nextZenMode = resolveZenModeSetting(changes[ZEN_MODE_STORAGE_KEY].newValue);
+            applyZenModeState(nextZenMode);
         }
 
         if (!state.isEnabled) {
@@ -2066,7 +2344,11 @@
         watchThemeChanges();
         handleThemeChange();
 
-        const isEnabled = await getNotesEnabledSetting();
+        const [isEnabled, isZenModeEnabled] = await Promise.all([
+            getNotesEnabledSetting(),
+            getZenModeSetting()
+        ]);
+        applyZenModeState(isZenModeEnabled);
         applyEnabledState(isEnabled);
 
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
