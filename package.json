@@ -7,7 +7,9 @@
         "build:watch": "chokidar \"extension/**/*\" --ignore \"extension/dist/**\" -c \"npm run build\" --initial",
         "dev": "tsc --watch -p extension/tsconfig.json",
         "typecheck": "tsc --noEmit -p extension/tsconfig.json",
-        "lint": "eslint \"extension/**/*.{ts,js,mjs}\""
+        "lint": "eslint \"extension/**/*.{ts,js,mjs}\"",
+        "zip-chrome": "npm run build && zip -r dist-chrome.zip extension/dist/*",
+        "zip-fire": "npm run build && cd extension/dist && zip -r ../../dist-fire.zip ."
     },
     "devDependencies": {
         "@eslint/js": "^9.39.1",
