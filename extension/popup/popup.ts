@@ -5,7 +5,9 @@
     const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
     const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
     const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
+    const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
     const DEFAULT_MD_TEMPLATE = '[*video-title*](*youtube-url*)\n\n- *time-url*: *note*';
+    const HOLD_DURATION_MS = 2000;
     const VIEW_NOTES = 'notes';
     const VIEW_SETTINGS = 'settings';
     const VIEW_CONTEXT_PAGE = 'page';
@@ -21,7 +23,8 @@
         isNotesEnabled: true,
         isZenModeEnabled: false,
         isMdExportEnabled: false,
-        mdTemplate: DEFAULT_MD_TEMPLATE
+        mdTemplate: DEFAULT_MD_TEMPLATE,
+        isDeleteHoldEnabled: true
     };
 
     const elements: PopupElements = {
@@ -40,7 +43,8 @@
         enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null,
         zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null,
         mdExportToggle: document.getElementById('md-export-toggle') as HTMLInputElement | null,
-        mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null
+        mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null,
+        deleteHoldToggle: document.getElementById('delete-hold-toggle') as HTMLInputElement | null
     };
 
     const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'] as const;
@@ -69,6 +73,12 @@
         state.mdTemplate = template;
         if (elements.mdTemplateTextarea) {
             elements.mdTemplateTextarea.value = template;
+        }
+    };
+    const syncDeleteHoldToggle = (isEnabled: boolean): void => {
+        state.isDeleteHoldEnabled = isEnabled;
+        if (elements.deleteHoldToggle) {
+            elements.deleteHoldToggle.checked = isEnabled;
         }
     };
 
@@ -288,6 +298,22 @@
             });
         });
 
+    const persistDeleteHoldEnabled = (isEnabled: boolean): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+                reject(new Error('Storage unavailable'));
+                return;
+            }
+
+            chrome.storage.local.set({ [DELETE_HOLD_ENABLED_STORAGE_KEY]: isEnabled }, () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve(undefined);
+            });
+        });
+
     const getNoteDedupKey = (note: StoredNote): string | null => {
         if (!isPlainObject(note)) {
             return null;
@@ -476,6 +502,12 @@
         }, 500);
     };
 
+    const handleDeleteHoldToggleChange = (event: Event): void => {
+        const target = event.target as HTMLInputElement | null;
+        const isEnabled = Boolean(target?.checked);
+        updateDeleteHoldEnabled(isEnabled).catch(() => { });
+    };
+
     const formatTimestamp = (value: number): string => {
         if (!Number.isFinite(value)) {
             return '00:00';
@@ -504,7 +536,7 @@
             }
 
             chrome.storage.local.get(
-                [NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY, ZEN_MODE_STORAGE_KEY, MD_EXPORT_ENABLED_STORAGE_KEY, MD_TEMPLATE_STORAGE_KEY],
+                [NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY, ZEN_MODE_STORAGE_KEY, MD_EXPORT_ENABLED_STORAGE_KEY, MD_TEMPLATE_STORAGE_KEY, DELETE_HOLD_ENABLED_STORAGE_KEY],
                 (result) => {
                     if (chrome.runtime && chrome.runtime.lastError) {
                         resolve({});
@@ -539,6 +571,12 @@
             ? snapshot[MD_TEMPLATE_STORAGE_KEY] as string
             : DEFAULT_MD_TEMPLATE;
         syncMdTemplate(template);
+    };
+
+    const loadDeleteHoldEnabledFromStorage = async (): Promise<void> => {
+        const snapshot = await getStorageSnapshot();
+        const isDeleteHoldEnabled = resolveEnabledSetting(snapshot[DELETE_HOLD_ENABLED_STORAGE_KEY]);
+        syncDeleteHoldToggle(isDeleteHoldEnabled);
     };
 
     const updateNotesEnabled = async (isEnabled: boolean): Promise<void> => {
@@ -587,6 +625,19 @@
         } catch {
             syncMdTemplate(previousValue);
             setSettingsMessage('Unable to update markdown template.', 'error');
+        }
+    };
+
+    const updateDeleteHoldEnabled = async (isEnabled: boolean): Promise<void> => {
+        const previousValue = state.isDeleteHoldEnabled;
+        syncDeleteHoldToggle(isEnabled);
+
+        try {
+            await persistDeleteHoldEnabled(isEnabled);
+            render();
+        } catch {
+            syncDeleteHoldToggle(previousValue);
+            setSettingsMessage('Unable to update delete hold setting.', 'error');
         }
     };
 
@@ -969,6 +1020,107 @@
         }
     };
 
+    const createDeleteButtonWithHold = (
+        deleteAction: () => void,
+        ariaLabel: string
+    ): HTMLButtonElement => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'delete-chip';
+        button.setAttribute('aria-label', ariaLabel);
+        button.setAttribute('tabindex', '0');
+        button.appendChild(createDeleteIcon());
+
+        if (!state.isDeleteHoldEnabled) {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                deleteAction();
+            }, true);
+            return button;
+        }
+
+        let holdStartTime: number | null = null;
+        let animationFrameId: number | null = null;
+        let holdTimeoutId: number | null = null;
+
+        const cancelHold = (): void => {
+            if (holdStartTime !== null) {
+                holdStartTime = null;
+                button.classList.remove('delete-chip--holding');
+                button.style.setProperty('--hold-progress', '0');
+                button.style.setProperty('--hold-progress-deg', '0deg');
+                button.style.setProperty('--hold-progress-radius', '0px');
+            }
+            if (animationFrameId !== null) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (holdTimeoutId !== null) {
+                clearTimeout(holdTimeoutId);
+                holdTimeoutId = null;
+            }
+        };
+
+        const updateProgress = (): void => {
+            if (holdStartTime === null) {
+                return;
+            }
+
+            const elapsed = Date.now() - holdStartTime;
+            const normalizedTime = Math.min(elapsed / HOLD_DURATION_MS, 1);
+            const progress = 1 - Math.pow(1 - normalizedTime, 3);
+            const progressPercent = progress * 100;
+            const progressDegrees = progressPercent * 3.6;
+            const innerProgress = 1 - Math.pow(1 - normalizedTime, 4);
+            const progressRadius = innerProgress * 100 * 0.17;
+
+            button.style.setProperty('--hold-progress', `${progressPercent}`);
+            button.style.setProperty('--hold-progress-deg', `${progressDegrees}deg`);
+            button.style.setProperty('--hold-progress-radius', `${progressRadius}px`);
+
+            if (normalizedTime >= 1) {
+                cancelHold();
+                deleteAction();
+            } else {
+                animationFrameId = requestAnimationFrame(updateProgress);
+            }
+        };
+
+        const startHold = (): void => {
+            if (holdStartTime !== null) {
+                return;
+            }
+            holdStartTime = Date.now();
+            button.classList.add('delete-chip--holding');
+            button.style.setProperty('--hold-progress', '0');
+            button.style.setProperty('--hold-progress-deg', '0deg');
+            button.style.setProperty('--hold-progress-radius', '0px');
+            animationFrameId = requestAnimationFrame(updateProgress);
+        };
+
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
+
+        const handlePointerDown = (event: MouseEvent | TouchEvent): void => {
+            event.preventDefault();
+            event.stopPropagation();
+            startHold();
+        };
+
+        button.addEventListener('mousedown', handlePointerDown, true);
+        button.addEventListener('touchstart', handlePointerDown as EventListener, { passive: false, capture: true });
+
+        button.addEventListener('mouseup', cancelHold, true);
+        button.addEventListener('touchend', cancelHold, true);
+        button.addEventListener('mouseleave', cancelHold, true);
+        button.addEventListener('touchcancel', cancelHold, true);
+
+        return button;
+    };
+
     const render = (): void => {
         const searchTrimmed = state.searchTerm.trim();
         const isSearchActive = searchTrimmed.length > 0;
@@ -1037,16 +1189,11 @@
                 headerButton.addEventListener('click', () => toggleVideoExpansion(video.videoId));
             }
 
-            const videoDeleteButton = document.createElement('button');
-            videoDeleteButton.type = 'button';
-            videoDeleteButton.className = 'delete-chip video-delete-button';
-            videoDeleteButton.setAttribute('aria-label', `Delete all notes for "${video.title}"`);
-            videoDeleteButton.appendChild(createDeleteIcon());
-            videoDeleteButton.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleVideoDelete(video.videoId);
-            });
+            const videoDeleteButton = createDeleteButtonWithHold(
+                () => handleVideoDelete(video.videoId),
+                `Delete all notes for "${video.title}"`
+            );
+            videoDeleteButton.classList.add('video-delete-button');
 
             const buttons: HTMLElement[] = [headerButton];
 
@@ -1091,16 +1238,11 @@
                 textSpan.className = 'note-button__text';
                 textSpan.textContent = note.text;
 
-                const noteDeleteButton = document.createElement('button');
-                noteDeleteButton.type = 'button';
-                noteDeleteButton.className = 'delete-chip note-delete-button';
-                noteDeleteButton.setAttribute('aria-label', `Delete note at ${note.formattedTimestamp}`);
-                noteDeleteButton.appendChild(createDeleteIcon());
-                noteDeleteButton.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleNoteDelete(video.videoId, note.dedupKey);
-                });
+                const noteDeleteButton = createDeleteButtonWithHold(
+                    () => handleNoteDelete(video.videoId, note.dedupKey),
+                    `Delete note at ${note.formattedTimestamp}`
+                );
+                noteDeleteButton.classList.add('note-delete-button');
 
                 noteButton.append(timestampSpan, textSpan);
                 noteItem.append(noteButton, noteDeleteButton);
@@ -1164,6 +1306,12 @@
             syncMdTemplate(nextTemplate);
         }
 
+        if (changes[DELETE_HOLD_ENABLED_STORAGE_KEY]) {
+            const nextDeleteHoldEnabled = resolveEnabledSetting(changes[DELETE_HOLD_ENABLED_STORAGE_KEY].newValue);
+            syncDeleteHoldToggle(nextDeleteHoldEnabled);
+            render();
+        }
+
         if (changes[NOTES_STORAGE_KEY] || changes[METADATA_STORAGE_KEY]) {
             loadVideos();
         }
@@ -1182,6 +1330,9 @@
         });
         loadMdTemplateFromStorage().catch(() => {
             syncMdTemplate(DEFAULT_MD_TEMPLATE);
+        });
+        loadDeleteHoldEnabledFromStorage().catch(() => {
+            syncDeleteHoldToggle(true);
         });
 
         if (elements.searchInput) {
@@ -1226,6 +1377,10 @@
 
         if (elements.mdTemplateTextarea) {
             elements.mdTemplateTextarea.addEventListener('input', handleMdTemplateChange);
+        }
+
+        if (elements.deleteHoldToggle) {
+            elements.deleteHoldToggle.addEventListener('change', handleDeleteHoldToggleChange);
         }
 
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {

@@ -133,6 +133,7 @@ interface PopupState {
     isZenModeEnabled: boolean;
     isMdExportEnabled: boolean;
     mdTemplate: string;
+    isDeleteHoldEnabled: boolean;
 }
 
 interface PopupElements {
@@ -152,4 +153,5 @@ interface PopupElements {
     zenModeToggle: HTMLInputElement | null;
     mdExportToggle: HTMLInputElement | null;
     mdTemplateTextarea: HTMLTextAreaElement | null;
+    deleteHoldToggle: HTMLInputElement | null;
 }
