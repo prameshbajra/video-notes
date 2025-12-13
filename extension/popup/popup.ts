@@ -3,6 +3,9 @@
     const METADATA_STORAGE_KEY = 'videoNotes:metadata';
     const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
     const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
+    const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
+    const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
+    const DEFAULT_MD_TEMPLATE = '[*video-title*](*youtube-url*)\n\n- *time-url*: *note*';
     const VIEW_NOTES = 'notes';
     const VIEW_SETTINGS = 'settings';
     const VIEW_CONTEXT_PAGE = 'page';
@@ -16,7 +19,9 @@
         searchTerm: '',
         activeView: VIEW_NOTES,
         isNotesEnabled: true,
-        isZenModeEnabled: false
+        isZenModeEnabled: false,
+        isMdExportEnabled: false,
+        mdTemplate: DEFAULT_MD_TEMPLATE
     };
 
     const elements: PopupElements = {
@@ -33,7 +38,9 @@
         importInput: document.getElementById('import-input') as HTMLInputElement | null,
         settingsMessage: document.getElementById('settings-message') as HTMLParagraphElement | null,
         enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null,
-        zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null
+        zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null,
+        mdExportToggle: document.getElementById('md-export-toggle') as HTMLInputElement | null,
+        mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null
     };
 
     const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'] as const;
@@ -50,6 +57,18 @@
         state.isZenModeEnabled = isEnabled;
         if (elements.zenModeToggle) {
             elements.zenModeToggle.checked = isEnabled;
+        }
+    };
+    const syncMdExportToggle = (isEnabled: boolean): void => {
+        state.isMdExportEnabled = isEnabled;
+        if (elements.mdExportToggle) {
+            elements.mdExportToggle.checked = isEnabled;
+        }
+    };
+    const syncMdTemplate = (template: string): void => {
+        state.mdTemplate = template;
+        if (elements.mdTemplateTextarea) {
+            elements.mdTemplateTextarea.value = template;
         }
     };
 
@@ -121,6 +140,33 @@
         path.setAttribute('stroke-linejoin', 'round');
 
         svg.appendChild(path);
+        return svg;
+    };
+
+    const createExportIcon = (): SVGSVGElement => {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'export-button__icon');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+
+        const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path1.setAttribute('d', 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1z');
+        path1.setAttribute('stroke', 'currentColor');
+        path1.setAttribute('stroke-width', '1.8');
+        path1.setAttribute('stroke-linecap', 'round');
+        path1.setAttribute('stroke-linejoin', 'round');
+        path1.setAttribute('fill', 'none');
+
+        const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path2.setAttribute('d', 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z');
+        path2.setAttribute('stroke', 'currentColor');
+        path2.setAttribute('stroke-width', '1.8');
+        path2.setAttribute('stroke-linecap', 'round');
+        path2.setAttribute('stroke-linejoin', 'round');
+        path2.setAttribute('fill', 'none');
+
+        svg.appendChild(path1);
+        svg.appendChild(path2);
         return svg;
     };
 
@@ -202,6 +248,38 @@
             }
 
             chrome.storage.local.set({ [ZEN_MODE_STORAGE_KEY]: isEnabled }, () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve(undefined);
+            });
+        });
+
+    const persistMdExportEnabled = (isEnabled: boolean): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+                reject(new Error('Storage unavailable'));
+                return;
+            }
+
+            chrome.storage.local.set({ [MD_EXPORT_ENABLED_STORAGE_KEY]: isEnabled }, () => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve(undefined);
+            });
+        });
+
+    const persistMdTemplate = (template: string): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+                reject(new Error('Storage unavailable'));
+                return;
+            }
+
+            chrome.storage.local.set({ [MD_TEMPLATE_STORAGE_KEY]: template }, () => {
                 if (chrome.runtime && chrome.runtime.lastError) {
                     reject(new Error(chrome.runtime.lastError.message));
                     return;
@@ -378,6 +456,26 @@
         updateZenModeEnabled(isEnabled).catch(() => { });
     };
 
+    const handleMdExportToggleChange = (event: Event): void => {
+        const target = event.target as HTMLInputElement | null;
+        const isEnabled = Boolean(target?.checked);
+        updateMdExportEnabled(isEnabled).catch(() => { });
+    };
+
+    let templateDebounceTimer: number | null = null;
+    const handleMdTemplateChange = (event: Event): void => {
+        const target = event.target as HTMLTextAreaElement | null;
+        const template = target?.value || DEFAULT_MD_TEMPLATE;
+
+        if (templateDebounceTimer !== null) {
+            clearTimeout(templateDebounceTimer);
+        }
+
+        templateDebounceTimer = window.setTimeout(() => {
+            updateMdTemplate(template).catch(() => { });
+        }, 500);
+    };
+
     const formatTimestamp = (value: number): string => {
         if (!Number.isFinite(value)) {
             return '00:00';
@@ -406,7 +504,7 @@
             }
 
             chrome.storage.local.get(
-                [NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY, ZEN_MODE_STORAGE_KEY],
+                [NOTES_STORAGE_KEY, METADATA_STORAGE_KEY, ENABLED_STORAGE_KEY, ZEN_MODE_STORAGE_KEY, MD_EXPORT_ENABLED_STORAGE_KEY, MD_TEMPLATE_STORAGE_KEY],
                 (result) => {
                     if (chrome.runtime && chrome.runtime.lastError) {
                         resolve({});
@@ -427,6 +525,20 @@
         const snapshot = await getStorageSnapshot();
         const isZenModeEnabled = resolveZenModeSetting(snapshot[ZEN_MODE_STORAGE_KEY]);
         syncZenModeToggle(isZenModeEnabled);
+    };
+
+    const loadMdExportEnabledFromStorage = async (): Promise<void> => {
+        const snapshot = await getStorageSnapshot();
+        const isMdExportEnabled = resolveEnabledSetting(snapshot[MD_EXPORT_ENABLED_STORAGE_KEY]);
+        syncMdExportToggle(isMdExportEnabled);
+    };
+
+    const loadMdTemplateFromStorage = async (): Promise<void> => {
+        const snapshot = await getStorageSnapshot();
+        const template = typeof snapshot[MD_TEMPLATE_STORAGE_KEY] === 'string' && snapshot[MD_TEMPLATE_STORAGE_KEY].trim()
+            ? snapshot[MD_TEMPLATE_STORAGE_KEY] as string
+            : DEFAULT_MD_TEMPLATE;
+        syncMdTemplate(template);
     };
 
     const updateNotesEnabled = async (isEnabled: boolean): Promise<void> => {
@@ -450,6 +562,31 @@
         } catch {
             syncZenModeToggle(previousValue);
             setSettingsMessage('Unable to update Zen Mode.', 'error');
+        }
+    };
+
+    const updateMdExportEnabled = async (isEnabled: boolean): Promise<void> => {
+        const previousValue = state.isMdExportEnabled;
+        syncMdExportToggle(isEnabled);
+
+        try {
+            await persistMdExportEnabled(isEnabled);
+            render();
+        } catch {
+            syncMdExportToggle(previousValue);
+            setSettingsMessage('Unable to update markdown export setting.', 'error');
+        }
+    };
+
+    const updateMdTemplate = async (template: string): Promise<void> => {
+        const previousValue = state.mdTemplate;
+        syncMdTemplate(template);
+
+        try {
+            await persistMdTemplate(template);
+        } catch {
+            syncMdTemplate(previousValue);
+            setSettingsMessage('Unable to update markdown template.', 'error');
         }
     };
 
@@ -750,6 +887,88 @@
         }
     };
 
+    const generateMarkdownFromVideo = (video: VideoListItem, template: string): string => {
+        const youtubeUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+        const lines = template.split('\n');
+        const resultLines: string[] = [];
+        let notePatternLines: string[] = [];
+
+        for (const line of lines) {
+            const hasNotePlaceholders = /\*time\*/.test(line) || /\*time-url\*/.test(line) || /\*note\*/.test(line);
+
+            if (hasNotePlaceholders) {
+                notePatternLines.push(line);
+            } else {
+                if (notePatternLines.length > 0) {
+                    video.notes.forEach((note) => {
+                        notePatternLines.forEach((patternLine) => {
+                            let processedLine = patternLine;
+                            const noteYoutubeUrl = `${youtubeUrl}&t=${Math.floor(note.timestamp)}s`;
+                            const timeLink = `[${note.formattedTimestamp}](${noteYoutubeUrl})`;
+                            processedLine = processedLine.replace(/\*video-title\*/g, () => video.title);
+                            processedLine = processedLine.replace(/\*youtube-url\*/g, () => youtubeUrl);
+                            processedLine = processedLine.replace(/\*time-url\*/g, () => timeLink);
+                            processedLine = processedLine.replace(/\*time\*/g, () => note.formattedTimestamp);
+                            processedLine = processedLine.replace(/\*note\*/g, () => note.text);
+                            resultLines.push(processedLine);
+                        });
+                    });
+                    notePatternLines = [];
+                }
+
+                let processedLine = line;
+                processedLine = processedLine.replace(/\*video-title\*/g, () => video.title);
+                processedLine = processedLine.replace(/\*youtube-url\*/g, () => youtubeUrl);
+                processedLine = processedLine.replace(/\*time-url\*/g, () => '');
+                processedLine = processedLine.replace(/\*time\*/g, () => '');
+                processedLine = processedLine.replace(/\*note\*/g, () => '');
+                resultLines.push(processedLine);
+            }
+        }
+
+        if (notePatternLines.length > 0) {
+            video.notes.forEach((note) => {
+                notePatternLines.forEach((patternLine) => {
+                    let processedLine = patternLine;
+                    const noteYoutubeUrl = `${youtubeUrl}&t=${Math.floor(note.timestamp)}s`;
+                    const timeLink = `[${note.formattedTimestamp}](${noteYoutubeUrl})`;
+                    processedLine = processedLine.replace(/\*video-title\*/g, () => video.title);
+                    processedLine = processedLine.replace(/\*youtube-url\*/g, () => youtubeUrl);
+                    processedLine = processedLine.replace(/\*time-url\*/g, () => timeLink);
+                    processedLine = processedLine.replace(/\*time\*/g, () => note.formattedTimestamp);
+                    processedLine = processedLine.replace(/\*note\*/g, () => note.text);
+                    resultLines.push(processedLine);
+                });
+            });
+        }
+
+        return resultLines.join('\n');
+    };
+
+    const exportVideoAsMarkdown = async (video: VideoListItem): Promise<void> => {
+        try {
+            const template = state.mdTemplate || DEFAULT_MD_TEMPLATE;
+            const markdown = generateMarkdownFromVideo(video, template);
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(markdown);
+                setSettingsMessage('Markdown copied to clipboard!', 'success');
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = markdown;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setSettingsMessage('Markdown copied to clipboard!', 'success');
+            }
+        } catch {
+            setSettingsMessage('Unable to copy markdown.', 'error');
+        }
+    };
+
     const render = (): void => {
         const searchTrimmed = state.searchTerm.trim();
         const isSearchActive = searchTrimmed.length > 0;
@@ -829,7 +1048,24 @@
                 handleVideoDelete(video.videoId);
             });
 
-            headerRow.append(headerButton, videoDeleteButton);
+            const buttons: HTMLElement[] = [headerButton];
+
+            if (state.isMdExportEnabled) {
+                const videoExportButton = document.createElement('button');
+                videoExportButton.type = 'button';
+                videoExportButton.className = 'export-chip video-export-button';
+                videoExportButton.setAttribute('aria-label', `Copy notes for "${video.title}" as markdown`);
+                videoExportButton.appendChild(createExportIcon());
+                videoExportButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    exportVideoAsMarkdown(video);
+                });
+                buttons.push(videoExportButton);
+            }
+
+            buttons.push(videoDeleteButton);
+            headerRow.append(...buttons);
 
             const notesList = document.createElement('ul');
             notesList.className = 'notes-list';
@@ -915,6 +1151,19 @@
             syncZenModeToggle(nextZenMode);
         }
 
+        if (changes[MD_EXPORT_ENABLED_STORAGE_KEY]) {
+            const nextMdExportEnabled = resolveEnabledSetting(changes[MD_EXPORT_ENABLED_STORAGE_KEY].newValue);
+            syncMdExportToggle(nextMdExportEnabled);
+            render();
+        }
+
+        if (changes[MD_TEMPLATE_STORAGE_KEY]) {
+            const nextTemplate = typeof changes[MD_TEMPLATE_STORAGE_KEY].newValue === 'string' && changes[MD_TEMPLATE_STORAGE_KEY].newValue.trim()
+                ? changes[MD_TEMPLATE_STORAGE_KEY].newValue as string
+                : DEFAULT_MD_TEMPLATE;
+            syncMdTemplate(nextTemplate);
+        }
+
         if (changes[NOTES_STORAGE_KEY] || changes[METADATA_STORAGE_KEY]) {
             loadVideos();
         }
@@ -927,6 +1176,12 @@
         });
         loadZenModeFromStorage().catch(() => {
             syncZenModeToggle(false);
+        });
+        loadMdExportEnabledFromStorage().catch(() => {
+            syncMdExportToggle(false);
+        });
+        loadMdTemplateFromStorage().catch(() => {
+            syncMdTemplate(DEFAULT_MD_TEMPLATE);
         });
 
         if (elements.searchInput) {
@@ -965,10 +1220,22 @@
             elements.zenModeToggle.addEventListener('change', handleZenToggleChange);
         }
 
+        if (elements.mdExportToggle) {
+            elements.mdExportToggle.addEventListener('change', handleMdExportToggleChange);
+        }
+
+        if (elements.mdTemplateTextarea) {
+            elements.mdTemplateTextarea.addEventListener('input', handleMdTemplateChange);
+        }
+
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
             chrome.storage.onChanged.addListener(storageChangeHandler);
             window.addEventListener('unload', () => {
                 chrome.storage.onChanged.removeListener(storageChangeHandler);
+                if (templateDebounceTimer !== null) {
+                    clearTimeout(templateDebounceTimer);
+                    templateDebounceTimer = null;
+                }
             });
         }
 

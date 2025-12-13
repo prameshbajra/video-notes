@@ -65,6 +65,28 @@
                     </div>
                     <p id="settings-message" class="settings-message" role="status" aria-live="polite"></p>
                 </div>
+                <div class="settings-content">
+                    <h2 class="settings-content__title">Markdown Export</h2>
+                    <p class="settings-content__description">
+                        Copy notes as markdown to clipboard with a customizable template.
+                    </p>
+                    <label class="toggle">
+                        <div class="toggle__text">
+                            <span class="toggle__title">Enable markdown export</span>
+                            <span class="toggle__description">Show copy buttons for each video when enabled.</span>
+                        </div>
+                        <input id="md-export-toggle" class="toggle__input" type="checkbox" />
+                    </label>
+                    <div style="margin-top: 16px;">
+                        <label for="md-template-textarea" style="display: block; margin-bottom: 8px; font-weight: 600;">Markdown Template</label>
+                        <textarea id="md-template-textarea" class="template-textarea" rows="5">[*video-title*](*youtube-url*)
+
+- *time-url*: *note*</textarea>
+                        <p style="margin-top: 8px; margin-bottom: 0; color: var(--muted); font-size: 12px;">
+                            Placeholders: <code>*video-title*</code>, <code>*youtube-url*</code>, <code>*time*</code>, <code>*time-url*</code>, <code>*note*</code>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
         <script type="module" src="popup.js"></script>
