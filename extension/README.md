@@ -13,11 +13,11 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 .
 ├── manifest.json          # Declares popup, service worker entry, and YouTube content script
 ├── background.ts          # MV3 worker placeholder
-├── scripts/content.ts     # Injected on youtube.com/watch; builds the UI and persists notes
+├── scripts/content/       # Content script modules (entry: index.ts)
 ├── popup/                 # Popup UI assets
 │   ├── popup.html
 │   ├── popup.css
-│   └── popup.ts
+│   └── ts/                # Popup TS modules (entry: popup.ts)
 ├── tools/build.mjs        # Cleans dist, compiles TS, copies manifest/icons/popup assets
 ├── types/                 # Shared types
 ├── icons/                 # Extension icons
@@ -26,7 +26,7 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 
 ## Build & Dev Commands
 - `npm install`
-- `npm run dev`: `tsc --watch` output into `extension/dist/` (TS only). If you change static assets, rerun `npm run build`.
+- `npm run dev`: watch builds into `extension/dist/` (includes content script bundling).
 - `npm run build`: clean dist, compile TS, and copy manifest/icons/popup assets to `extension/dist/`.
 - `npm run typecheck`: strict TS validation.
 - `npm run lint`: ESLint over `extension/**/*.{ts,js,mjs}`.
@@ -62,4 +62,3 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 }
 ```
 Data stays local to the browser and is shared between the content script and popup.
-

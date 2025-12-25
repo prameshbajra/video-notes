@@ -3,7 +3,7 @@
 Video Notes is a lightweight YouTube companion: take timestamped annotations inline on `youtube.com/watch`, see them as timeline markers, and browse/search everything from the popup.
 
 ## What’s in this repo
-- `extension/`: Manifest V3 Chrome/Chromium + Firefox extension written in TypeScript. `scripts/content.ts` injects the notes UI, `popup/popup.ts` powers the action popup, `background.ts` is a placeholder worker, and build outputs go to `extension/dist/`.
+- `extension/`: Manifest V3 Chrome/Chromium + Firefox extension written in TypeScript. `scripts/content/index.ts` injects the notes UI, `popup/ts/popup.ts` powers the action popup, `background.ts` is a placeholder worker, and build outputs go to `extension/dist/`.
 - Static landing page at the repo root (`index.html`, `index.css`, `index.js`, `privacy.html`) that explains the feature tour and links to installs.
 - Contributor guidance lives in `AGENTS.md`; deeper architecture notes are in `extension/README.md`.
 
@@ -14,7 +14,7 @@ Video Notes is a lightweight YouTube companion: take timestamped annotations inl
 
 ## Develop locally
 1. `npm install`
-2. `npm run dev` for TypeScript watch output into `extension/dist/`.
+2. `npm run dev` for watch builds into `extension/dist/`.
 3. `npm run build` to clean/copy assets and produce a fresh `extension/dist/`.
 4. Checks: `npm run typecheck` (strict TS) and `npm run lint` (ESLint).
 5. Optional: `npx web-ext run --source-dir extension/dist --target chromium|firefox-desktop` to smoke-test, `npx web-ext lint --source-dir extension/dist` before packaging.
