@@ -465,6 +465,48 @@ body {
     cursor: pointer;
     opacity: 0;
     transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
+    position: relative;
+    --hold-progress: 0;
+    --hold-progress-deg: 0deg;
+    --hold-progress-radius: 0px;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+
+.delete-chip--holding {
+    --hold-progress: 0;
+    --hold-progress-deg: 0deg;
+    --hold-progress-radius: 0px;
+}
+
+.delete-chip--holding::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 999px;
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    background: conic-gradient(from 0deg, var(--danger) 0deg, var(--danger) var(--hold-progress-deg), transparent var(--hold-progress-deg));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+    pointer-events: none;
+    z-index: 1;
+    opacity: 1;
+}
+
+.delete-chip--holding::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, var(--danger) 0%, var(--danger) var(--hold-progress-radius), transparent calc(var(--hold-progress-radius) + 1px));
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
 }
 
 .delete-chip:hover,
@@ -481,6 +523,8 @@ body {
 .delete-button__icon {
     width: 14px;
     height: 14px;
+    position: relative;
+    z-index: 2;
 }
 
 .export-button__icon {
@@ -532,6 +576,12 @@ body {
 
 .video-delete-button {
     opacity: 1;
+    pointer-events: auto;
+}
+
+.delete-chip,
+.delete-chip--holding {
+    pointer-events: auto !important;
 }
 
 .video-header-row:hover .video-delete-button,
