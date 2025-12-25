@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildSync } from 'esbuild';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const extensionRoot = path.join(__dirname, '..');
@@ -16,6 +17,34 @@ const tscResult = spawnSync('npx', ['tsc', '--project', path.join(extensionRoot,
 if (tscResult.status !== 0) {
   process.exit(tscResult.status ?? 1);
 }
+
+const bundleContentScript = () => {
+  const entryPoint = path.join(extensionRoot, 'scripts', 'content', 'index.ts');
+  const bundlePath = path.join(distDir, 'scripts', 'content.js');
+  mkdirSync(path.dirname(bundlePath), { recursive: true });
+
+  try {
+    buildSync({
+      entryPoints: [entryPoint],
+      outfile: bundlePath,
+      bundle: true,
+      minify: true,
+      format: 'iife',
+      platform: 'browser',
+      target: 'es2020'
+    });
+  } catch {
+    process.stderr.write('Content script bundling failed.\n');
+    process.exit(1);
+  }
+
+  const contentDir = path.join(distDir, 'scripts', 'content');
+  if (existsSync(contentDir)) {
+    rmSync(contentDir, { recursive: true, force: true });
+  }
+};
+
+bundleContentScript();
 
 const staticAssets = ['manifest.json', 'icons', 'popup/popup.html', 'popup/popup.css', 'notes'];
 
