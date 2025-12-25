@@ -483,9 +483,51 @@ body {
     height: 14px;
 }
 
+.export-button__icon {
+    width: 14px;
+    height: 14px;
+}
+
 .video-delete-button,
 .note-delete-button {
     flex-shrink: 0;
+}
+
+.export-chip {
+    border: 1px solid var(--divider);
+    background-color: var(--surface);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 0;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+.export-chip:hover,
+.export-chip:focus-visible {
+    outline: none;
+    color: var(--accent);
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+    opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent-muted);
+    transform: translateY(-1px);
+}
+
+.video-export-button {
+    flex-shrink: 0;
+    opacity: 1;
+}
+
+.video-header-row:hover .video-export-button,
+.video-export-button:focus-visible {
+    opacity: 1;
 }
 
 .video-delete-button {
@@ -520,4 +562,36 @@ body {
         border-color: rgba(241, 243, 244, 0.16);
         background-color: rgba(255, 255, 255, 0.04);
     }
+
+    .export-chip {
+        border-color: rgba(241, 243, 244, 0.16);
+        background-color: rgba(255, 255, 255, 0.04);
+    }
+}
+
+.template-textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--divider);
+    background-color: var(--background);
+    color: inherit;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.template-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.template-textarea code {
+    background-color: var(--surface);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 11px;
 }

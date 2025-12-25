@@ -131,6 +131,8 @@ interface PopupState {
     activeView: ViewName;
     isNotesEnabled: boolean;
     isZenModeEnabled: boolean;
+    isMdExportEnabled: boolean;
+    mdTemplate: string;
 }
 
 interface PopupElements {
@@ -148,4 +150,6 @@ interface PopupElements {
     settingsMessage: HTMLParagraphElement | null;
     enableToggle: HTMLInputElement | null;
     zenModeToggle: HTMLInputElement | null;
+    mdExportToggle: HTMLInputElement | null;
+    mdTemplateTextarea: HTMLTextAreaElement | null;
 }
