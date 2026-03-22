@@ -17,6 +17,7 @@ const ui: UiElements = {
     container: null,
     addButton: null,
     zenButton: null,
+    shareButton: null,
     track: null,
     trackBaseline: null,
     tooltip: null,

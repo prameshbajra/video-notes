@@ -28,6 +28,7 @@ import {
     renderNotesTrack,
     setEnsureUiReady
 } from './notes.js';
+import { handleShareButtonClick, updateShareButtonVisibility } from './share.js';
 import { attachResponsiveListeners, closeTooltip, hideNotePreview } from './tooltip.js';
 import { getVideoElement, getVideoIdFromLocation } from './utils.js';
 import {
@@ -214,6 +215,11 @@ const attachUiListeners = (): void => {
 
     addButton.addEventListener('click', handleAddButtonClick);
     zenButton.addEventListener('click', handleZenButtonClick);
+    if (ui.shareButton) {
+        ui.shareButton.addEventListener('click', () => {
+            handleShareButtonClick().catch(() => {});
+        });
+    }
     cancelButton.addEventListener('click', closeTooltip);
     saveButton.addEventListener('click', handleSave);
     deleteButton.addEventListener('click', handleDelete);
@@ -277,6 +283,7 @@ const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = 
         state.videoId = null;
         state.notes = [];
         renderNotesTrack();
+        updateShareButtonVisibility();
         closeTooltip();
         return;
     }
@@ -286,6 +293,7 @@ const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = 
     if (!shouldReloadNotes) {
         assignVideoElement();
         renderNotesTrack();
+        updateShareButtonVisibility();
         return;
     }
 
@@ -306,6 +314,7 @@ const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = 
     }
     assignVideoElement();
     renderNotesTrack();
+    updateShareButtonVisibility();
     closeTooltip();
 };
 
@@ -330,6 +339,7 @@ const insertContainer = (): boolean => {
     ui.container = elements.container;
     ui.addButton = elements.addButton;
     ui.zenButton = elements.zenButton;
+    ui.shareButton = elements.shareButton;
     ui.track = elements.track;
     ui.trackBaseline = elements.trackBaseline;
     ui.emptyState = elements.emptyState;
@@ -371,6 +381,7 @@ const ensureUiReady = (videoIdOverride?: string): boolean => {
 
     assignVideoElement();
     renderNotesTrack();
+    updateShareButtonVisibility();
     return true;
 };
 
@@ -391,6 +402,7 @@ const teardownUi = (): void => {
     ui.container = null;
     ui.addButton = null;
     ui.zenButton = null;
+    ui.shareButton = null;
     ui.track = null;
     ui.trackBaseline = null;
     ui.tooltip = null;
@@ -529,7 +541,7 @@ const initialize = async (): Promise<void> => {
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
         chrome.storage.onChanged.addListener(handleStorageChange);
-        window.addEventListener('unload', () => {
+        window.addEventListener('pagehide', () => {
             chrome.storage.onChanged.removeListener(handleStorageChange);
         });
     }

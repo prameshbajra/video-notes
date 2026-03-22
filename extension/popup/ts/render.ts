@@ -1,10 +1,12 @@
+import { copyToClipboard } from './clipboard.js';
 import { HOLD_DURATION_MS } from './constants.js';
-import { elements, state } from './state.js';
+import { elements, showToast, state } from './state.js';
 
 interface RenderHandlers {
     onDeleteNote: (videoId: string, noteKey: string) => void;
     onDeleteVideo: (videoId: string) => void;
     onExportVideo: (video: VideoListItem) => void;
+    onShareVideo: (video: VideoListItem) => void;
     onOpenNote: (videoId: string, timestampSeconds: number | string) => void;
     onToggleVideo: (videoId: string) => void;
 }
@@ -89,6 +91,24 @@ const createExportIcon = (): SVGSVGElement => {
 
     svg.appendChild(path1);
     svg.appendChild(path2);
+    return svg;
+};
+
+const createShareIcon = (): SVGSVGElement => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'share-button__icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '1.8');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('fill', 'none');
+
+    svg.appendChild(path);
     return svg;
 };
 
@@ -274,6 +294,18 @@ const render = (handlers: RenderHandlers): void => {
 
         const buttons: HTMLElement[] = [headerButton];
 
+        const videoShareButton = document.createElement('button');
+        videoShareButton.type = 'button';
+        videoShareButton.className = 'export-chip video-share-button';
+        videoShareButton.setAttribute('aria-label', `Share notes for "${video.title}"`);
+        videoShareButton.appendChild(createShareIcon());
+        videoShareButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handlers.onShareVideo(video);
+        });
+        buttons.push(videoShareButton);
+
         if (state.isMdExportEnabled) {
             const videoExportButton = document.createElement('button');
             videoExportButton.type = 'button';
@@ -326,7 +358,33 @@ const render = (handlers: RenderHandlers): void => {
             notesList.appendChild(noteItem);
         });
 
-        listItem.append(headerRow, notesList);
+        const sharedUrl = state.sharedUrls.get(video.videoId);
+        if (sharedUrl) {
+            const shareLinkBar = document.createElement('div');
+            shareLinkBar.className = 'share-link-bar';
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'share-link-bar__url';
+            urlSpan.textContent = sharedUrl;
+            urlSpan.title = sharedUrl;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'share-link-bar__copy';
+            copyBtn.textContent = 'Copy link';
+            copyBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                copyToClipboard(sharedUrl)
+                    .then(() => showToast('Link copied to clipboard!', 'success'))
+                    .catch(() => showToast('Failed to copy link.', 'error'));
+            });
+
+            shareLinkBar.append(urlSpan, copyBtn);
+            listItem.append(headerRow, shareLinkBar, notesList);
+        } else {
+            listItem.append(headerRow, notesList);
+        }
         videoList.appendChild(listItem);
     });
 };
