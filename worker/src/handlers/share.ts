@@ -8,7 +8,7 @@ interface Env {
 const SHARE_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 const RATE_LIMIT_WINDOW = 60; // 1 minute
 const RATE_LIMIT_MAX = 10; // max creates per window
-const VIEWER_BASE_URL = 'https://ed8dd064.static-video-notes.pages.dev/';
+const VIEWER_BASE_URL = 'https://static-video-notes.pages.dev/';
 
 const checkRateLimit = async (ip: string, kv: KVNamespace): Promise<boolean> => {
     const key = `ratelimit:${ip}`;
