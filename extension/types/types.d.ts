@@ -75,6 +75,7 @@ interface UiElements {
     container: HTMLDivElement | null;
     addButton: HTMLButtonElement | null;
     zenButton: HTMLButtonElement | null;
+    shareButton: HTMLButtonElement | null;
     track: HTMLDivElement | null;
     trackBaseline: HTMLDivElement | null;
     tooltip: HTMLDivElement | null;
@@ -134,6 +135,7 @@ interface PopupState {
     isMdExportEnabled: boolean;
     mdTemplate: string;
     isDeleteHoldEnabled: boolean;
+    sharedUrls: Map<string, string>;
 }
 
 interface PopupElements {

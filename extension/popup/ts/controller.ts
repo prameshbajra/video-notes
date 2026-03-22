@@ -15,6 +15,7 @@ import {
     setActiveView,
     setSettingsMessage,
     shouldCloseOnNavigate,
+    showToast,
     state,
     syncDeleteHoldToggle,
     syncMdExportToggle,
@@ -31,6 +32,7 @@ import {
     mergeNotesPayload,
     transformStoragePayload
 } from './data.js';
+import { copyToClipboard } from './clipboard.js';
 import { generateMarkdownFromVideo } from './markdown.js';
 import { render, type RenderHandlers } from './render.js';
 import {
@@ -422,23 +424,47 @@ const exportVideoAsMarkdown = async (video: VideoListItem): Promise<void> => {
     try {
         const template = state.mdTemplate || DEFAULT_MD_TEMPLATE;
         const markdown = generateMarkdownFromVideo(video, template);
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(markdown);
-            setSettingsMessage('Markdown copied to clipboard!', 'success');
-        } else {
-            const textarea = document.createElement('textarea');
-            textarea.value = markdown;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            setSettingsMessage('Markdown copied to clipboard!', 'success');
-        }
+        await copyToClipboard(markdown);
+        showToast('Markdown copied to clipboard!', 'success');
     } catch {
-        setSettingsMessage('Unable to copy markdown.', 'error');
+        showToast('Unable to copy markdown.', 'error');
+    }
+};
+
+const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
+    try {
+        const payload = {
+            videoId: video.videoId,
+            title: video.title,
+            notes: video.notes.map((n) => ({
+                timestamp: n.timestamp,
+                text: n.text
+            }))
+        };
+
+        const data = await new Promise<{ url: string }>((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { type: 'SHARE_NOTES', payload },
+                (response: { success: boolean; url?: string; error?: string } | undefined) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message || 'Message failed'));
+                        return;
+                    }
+                    if (!response || !response.success) {
+                        reject(new Error(response?.error || 'Share failed'));
+                        return;
+                    }
+                    resolve({ url: response.url || '' });
+                }
+            );
+        });
+
+        await copyToClipboard(data.url);
+        state.sharedUrls.set(video.videoId, data.url);
+        showToast('Share link copied to clipboard!', 'success');
+        render(renderHandlers);
+    } catch {
+        showToast('Failed to create share link. Please try again.', 'error');
     }
 };
 
@@ -514,6 +540,9 @@ const renderHandlers: RenderHandlers = {
     },
     onExportVideo: (video: VideoListItem): void => {
         exportVideoAsMarkdown(video).catch(() => {});
+    },
+    onShareVideo: (video: VideoListItem): void => {
+        shareVideoNotes(video).catch(() => { });
     },
     onOpenNote: (videoId: string, timestampSeconds: number | string): void => {
         openNote(videoId, timestampSeconds);
@@ -591,7 +620,7 @@ const initialize = (): void => {
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
         chrome.storage.onChanged.addListener(storageChangeHandler);
-        window.addEventListener('unload', () => {
+        window.addEventListener('pagehide', () => {
             chrome.storage.onChanged.removeListener(storageChangeHandler);
             if (templateDebounceTimer !== null) {
                 clearTimeout(templateDebounceTimer);

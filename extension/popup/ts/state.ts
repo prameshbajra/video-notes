@@ -19,7 +19,8 @@ const state: PopupState = {
     isZenModeEnabled: false,
     isMdExportEnabled: false,
     mdTemplate: DEFAULT_MD_TEMPLATE,
-    isDeleteHoldEnabled: true
+    isDeleteHoldEnabled: true,
+    sharedUrls: new Map<string, string>()
 };
 
 const elements: PopupElements = {
@@ -125,11 +126,43 @@ const setSettingsMessage = (message: string, variant?: 'success' | 'error'): voi
     messageElement.classList.add(className);
 };
 
+let activeToastTimer: number | null = null;
+
+const showToast = (message: string, variant: 'success' | 'error' = 'success'): void => {
+    if (activeToastTimer !== null) {
+        clearTimeout(activeToastTimer);
+        activeToastTimer = null;
+    }
+
+    let toast = document.getElementById('popup-toast') as HTMLDivElement | null;
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'popup-toast';
+        toast.className = 'toast';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+        document.body.appendChild(toast);
+    }
+
+    toast.textContent = message;
+    toast.classList.remove('toast--success', 'toast--error', 'toast--visible');
+    toast.classList.add(variant === 'success' ? 'toast--success' : 'toast--error');
+
+    void toast.offsetWidth;
+    toast.classList.add('toast--visible');
+
+    activeToastTimer = window.setTimeout(() => {
+        toast!.classList.remove('toast--visible');
+        activeToastTimer = null;
+    }, 3000);
+};
+
 export {
     elements,
     setActiveView,
     setSettingsMessage,
     shouldCloseOnNavigate,
+    showToast,
     state,
     syncDeleteHoldToggle,
     syncMdExportToggle,

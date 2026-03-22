@@ -257,8 +257,25 @@ const createContainer = (palette: ThemePalette): UiElements => {
     addButton.id = 'video-notes-add-button';
     addButton.setAttribute('aria-label', 'Add a note for the current moment');
 
+    const shareButton = createButton('Share', {
+        borderRadius: '999px',
+        border: palette.surfaceBorder,
+        backgroundColor: palette.surfaceMuted,
+        color: palette.textPrimary,
+        fontSize: '13px',
+        fontWeight: '600',
+        lineHeight: '1.2',
+        cursor: 'pointer',
+        padding: '6px 12px',
+        display: 'inline-flex'
+    });
+    shareButton.id = 'video-notes-share-button';
+    shareButton.disabled = true;
+    shareButton.setAttribute('aria-label', 'Share notes for this video');
+
     header.appendChild(title);
     actions.appendChild(zenButton);
+    actions.appendChild(shareButton);
     actions.appendChild(addButton);
     header.appendChild(actions);
 
@@ -317,6 +334,7 @@ const createContainer = (palette: ThemePalette): UiElements => {
         container,
         addButton,
         zenButton,
+        shareButton,
         track,
         trackBaseline,
         emptyState,

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "share-page",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", "./share", "-p", "8090", "-c-1"],
+      "port": 8090
+    }
+  ]
+}
