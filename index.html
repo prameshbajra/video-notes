@@ -65,6 +65,7 @@
                     <a href="#workflow">Workflow</a>
                     <a href="#storage">Storage</a>
                     <a href="#popup">Popup</a>
+                    <a href="#zen-mode">Features</a>
                     <a href="#open-source">Open source</a>
                     <a href="#faq">FAQ</a>
                     <a href="privacy.html">Privacy</a>
@@ -91,8 +92,10 @@
                     <div class="hero-badges">
                         <span class="chip">Works on youtube.com/watch</span>
                         <span class="chip">Alt/Option + N shortcut</span>
-                        <span class="chip">Auto dark & light theming</span>
-                        <span class="chip">Notes stored offline </span>
+                        <span class="chip">Notes stored offline</span>
+                        <span class="chip">Zen mode</span>
+                        <span class="chip">Shareable note links</span>
+                        <span class="chip">Markdown export</span>
                     </div>
                 </div>
                 <div class="hero-media" aria-hidden="true">
@@ -231,6 +234,105 @@
                 </div>
             </section>
 
+            <section id="zen-mode" class="section split">
+                <div class="split-copy">
+                    <p class="eyebrow">Focus mode</p>
+                    <h2>Strip away distractions, keep the video.</h2>
+                    <p>
+                        Zen Mode hides recommendations, comments, and merchandise while
+                        expanding the player to near-full width with theater mode. Toggle
+                        it from the notes header &mdash; your preference persists across reloads.
+                    </p>
+                    <ul class="checklist">
+                        <li>Hides sidebar, comments &amp; merch shelf</li>
+                        <li>Auto-enables theater mode for immersive viewing</li>
+                        <li>Remembers your preference across page reloads</li>
+                    </ul>
+                </div>
+                <div class="split-panel" aria-hidden="true">
+                    <div class="mock-zen">
+                        <div class="mock-zen-topbar">
+                            <span>Video Notes</span>
+                            <span class="mock-zen-badge">Zen on</span>
+                        </div>
+                        <div class="mock-zen-video">Full-width player</div>
+                        <div class="mock-zen-hidden">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="share" class="section panel">
+                <div class="panel-copy">
+                    <p class="eyebrow">Collaboration</p>
+                    <h2>Share your notes with a single click.</h2>
+                    <p>
+                        Hit the Share button and Video Notes generates a unique link
+                        bundling your video title and every timestamped note into a
+                        clean read-only page. The URL is copied to your clipboard
+                        automatically.
+                    </p>
+                </div>
+                <div class="panel-visual" aria-hidden="true">
+                    <div class="mock-share">
+                        <div class="mock-share-header">
+                            <span>Deep Learning Walkthrough</span>
+                            <button class="mock-share-btn">Share</button>
+                        </div>
+                        <div class="mock-share-toast">Share link copied to clipboard!</div>
+                        <div class="mock-share-url">videonotes.app/s/a3f8k2...</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="notes-page" class="section highlight">
+                <div class="section-heading">
+                    <p class="eyebrow">Dedicated workspace</p>
+                    <h2>A full page for all your notes.</h2>
+                </div>
+                <p>
+                    Need more room than the popup? Open the dedicated notes page for a
+                    full-screen experience &mdash; search across every video, export and import
+                    backups, manage settings, and review notes at your own pace.
+                </p>
+            </section>
+
+            <section id="features" class="section features-section">
+                <div class="section-heading">
+                    <p class="eyebrow">Details that matter</p>
+                    <h2>Small touches, big difference.</h2>
+                </div>
+                <div class="features-grid">
+                    <article class="feature-card">
+                        <h3>Markdown Export</h3>
+                        <p>
+                            Copy notes as formatted markdown with a customizable template.
+                            Use placeholders like <code>*video-title*</code>, <code>*time-url*</code>,
+                            and <code>*note*</code> to shape the output for Obsidian, Notion,
+                            or any markdown tool.
+                        </p>
+                    </article>
+                    <article class="feature-card">
+                        <h3>Hold-to-Confirm Delete</h3>
+                        <p>
+                            Delete buttons require a two-second press-and-hold with an
+                            animated progress ring. Enabled by default, optional in settings.
+                        </p>
+                    </article>
+                    <article class="feature-card">
+                        <h3>Timeline Hover Previews</h3>
+                        <p>
+                            Hover over any note marker on the timeline to preview the note
+                            text without clicking. Scan your notes at a glance and jump to
+                            the one you need.
+                        </p>
+                    </article>
+                </div>
+            </section>
+
             <section id="open-source" class="section highlight">
                 <div class="section-heading">
                     <p class="eyebrow">Open source</p>
@@ -274,6 +376,31 @@
                             Video Notes injects lightweight HTML and listens for navigation
                             events, so it adds virtually no load time and never touches the
                             video stream itself.
+                        </p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>What does Zen Mode do?</h3>
+                        <p>
+                            Zen Mode hides YouTube's recommendations sidebar, comments section,
+                            and merchandise shelf. It also expands the video to nearly full width
+                            and enables theater mode for a distraction-free experience.
+                        </p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>How does sharing work?</h3>
+                        <p>
+                            Click the Share button to generate a unique read-only link. Your
+                            video title and timestamped notes are bundled into a shareable page
+                            and the URL is copied to your clipboard automatically.
+                        </p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>Can I customize the markdown export?</h3>
+                        <p>
+                            Yes. Open settings in the popup and edit the markdown template.
+                            Available placeholders include <code>*video-title*</code>,
+                            <code>*youtube-url*</code>, <code>*time-url*</code>, and
+                            <code>*note*</code>.
                         </p>
                     </article>
                 </div>
@@ -338,6 +465,30 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Video Notes injects lightweight HTML and listens for navigation events, so it adds virtually no load time and never touches the video stream itself."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What does Zen Mode do?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Zen Mode hides YouTube's recommendations sidebar, comments section, and merchandise shelf. It also expands the video to nearly full width and enables theater mode for a distraction-free experience."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does sharing work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Click the Share button to generate a unique read-only link. Your video title and timestamped notes are bundled into a shareable page and the URL is copied to your clipboard automatically."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I customize the markdown export?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Open settings in the popup and edit the markdown template. Available placeholders include *video-title*, *youtube-url*, *time-url*, and *note*."
             }
           }
         ]

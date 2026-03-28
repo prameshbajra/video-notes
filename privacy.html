@@ -16,7 +16,7 @@
         <meta property="og:locale" content="en_US" />
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content="Video Notes Privacy Policy" />
-        <meta name="twitter:description" content="Video Notes stores your YouTube notes locally and never transmits them to external services." />
+        <meta name="twitter:description" content="Video Notes stores your YouTube notes locally. The optional Share feature transmits note data to a lightweight API — all other operations stay on-device." />
         <meta name="theme-color" content="#040714" />
         <link rel="stylesheet" href="index.css" />
     </head>
@@ -34,6 +34,7 @@
                     <a href="index.html#workflow">Workflow</a>
                     <a href="index.html#storage">Storage</a>
                     <a href="index.html#popup">Popup</a>
+                    <a href="index.html#zen-mode">Features</a>
                     <a href="index.html#open-source">Open source</a>
                     <a href="index.html#faq">FAQ</a>
                     <a href="privacy.html" aria-current="page">Privacy</a>
@@ -53,7 +54,7 @@
                     Pramesh Bajracharya, handles information relating to your use of the extension.
                     The policy is intended to satisfy Chrome Web Store disclosure requirements and reassure end users that their notes remain private.
                 </p>
-                <p class="policy-meta">Effective date: March 28, 2024 &middot; Last reviewed: March 28, 2024</p>
+                <p class="policy-meta">Effective date: March 28, 2024 &middot; Last reviewed: March 28, 2026</p>
             </section>
 
             <section class="policy-layout">
@@ -62,7 +63,8 @@
                         <h2>1. Scope and data controller</h2>
                         <p>
                             This policy governs information collected, stored, or otherwise processed by the Video Notes Chrome extension.
-                            The extension operates solely within your browser to augment youtube.com/watch pages and does not rely on external infrastructure.
+                            The extension operates primarily within your browser to augment youtube.com/watch pages.
+                            The optional Share feature relies on a lightweight external API (see Section 5); all other functionality runs entirely on-device.
                             For the purpose of applicable privacy regulations, the data controller is Pramesh Bajracharya
                             (<a href="https://prameshbajra.github.io" rel="noreferrer noopener">prameshbajra.github.io</a>).
                         </p>
@@ -88,6 +90,15 @@
                             <li>The YouTube video identifier, title, and locally calculated note counts to organize entries.</li>
                         </ul>
                         <p>
+                            When you use the optional <strong>Share</strong> feature, the extension transmits the following to the share API
+                            (<code>share-api.video-notes.workers.dev</code>) so that a read-only shareable page can be generated:
+                        </p>
+                        <ul>
+                            <li>The YouTube video identifier and title.</li>
+                            <li>Every note associated with that video, including timestamps and text.</li>
+                        </ul>
+                        <p>
+                            No data is transmitted unless you explicitly click the Share button.
                             The extension does not request or infer usernames, email addresses, browsing history, or analytics identifiers.
                         </p>
                     </article>
@@ -112,31 +123,34 @@
                         </p>
                         <ul>
                             <li><strong>storage</strong> &mdash; allows the extension to store the notes you create in <code>chrome.storage.local</code>.</li>
-                            <li><strong>activeTab</strong> &mdash; enables the popup to access metadata about the currently focused YouTube tab so it can load relevant notes.</li>
-                            <li><strong>scripting</strong> &mdash; injects the content script that renders the inline workspace on youtube.com/watch pages.</li>
+                            <li><strong>host_permissions</strong> for <code>share-api.video-notes.workers.dev</code> &mdash; allows the extension to send note data to the share API when you explicitly click the Share button. No requests are made to this host unless you initiate a share action.</li>
+                            <li><strong>content_scripts</strong> on <code>youtube.com</code> &mdash; injects the inline workspace that renders the note editor, timeline, and controls on youtube.com/watch pages.</li>
                         </ul>
                         <p>
-                            These permissions do not provide the extension with the ability to read data on non-YouTube sites, collect browsing history, or transmit any note content beyond your browser.
+                            These permissions do not provide the extension with the ability to read data on non-YouTube sites or collect browsing history.
                         </p>
                     </article>
 
                     <article class="policy-card">
                         <h2>5. Network access, disclosures, and third parties</h2>
                         <p>
-                            The extension does not initiate outbound network requests other than what is necessary for YouTube to play video content in your tab.
+                            With the exception of the Share feature described below, the extension does not initiate outbound network requests.
                             No analytics SDKs, advertising services, or third-party processors are bundled with the codebase.
-                            Consequently, Video Notes does not sell, trade, or disclose your information to anyone.
+                            Video Notes does not sell, trade, or disclose your information to anyone.
                         </p>
                         <p>
-                            If future versions introduce optional features that rely on a network service, those changes will be documented,
-                            made opt-in, and reflected in an updated version of this policy.
+                            <strong>Share feature.</strong> When you click the Share button, the extension sends a request to
+                            <code>share-api.video-notes.workers.dev</code>, a Cloudflare Workers endpoint maintained by the developer.
+                            The request contains the video identifier, video title, and all timestamped notes for that video.
+                            The API stores this data to generate a unique, read-only shareable link. No other data (browsing history, cookies, device identifiers) is included in the request.
+                            This feature is entirely opt-in &mdash; no network requests are made unless you explicitly initiate a share action.
                         </p>
                     </article>
 
                     <article class="policy-card">
                         <h2>6. Security measures</h2>
                         <p>
-                            Because data never leaves your browser, security focuses on minimizing attack surface:
+                            Outside the optional Share feature, data never leaves your browser. Security focuses on minimizing attack surface:
                         </p>
                         <ul>
                             <li>The extension injects lightweight, auditable scripts based on open-source code published at <a href="https://github.com/prameshbajra/yt-notes" rel="noreferrer noopener">github.com/prameshbajra/yt-notes</a>.</li>
@@ -159,7 +173,10 @@
                             <li>Deleting individual notes or clearing all data through Chrome's site settings or by uninstalling the extension.</li>
                         </ul>
                         <p>
-                            Because the extension does not maintain server-side records, formal data access or deletion requests beyond your browser are unnecessary—the data resides solely with you.
+                            For notes that have not been shared, the data resides solely with you and no server-side records exist.
+                            If you have used the Share feature, the shared note data is stored on the share API server.
+                            To request deletion of shared data, please open an issue on the
+                            <a href="https://github.com/prameshbajra/yt-notes/issues" rel="noreferrer noopener">GitHub issue tracker</a>.
                         </p>
                     </article>
 

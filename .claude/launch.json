@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["http-server", "./share", "-p", "8090", "-c-1"],
       "port": 8090
+    },
+    {
+      "name": "landing-page",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", ".", "-p", "8091", "-c-1"],
+      "port": 8091
     }
   ]
 }
