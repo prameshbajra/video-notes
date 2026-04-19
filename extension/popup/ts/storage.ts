@@ -1,6 +1,9 @@
 import {
     DELETE_HOLD_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
+    FLASHCARDS_CACHE_STORAGE_KEY,
+    FLASHCARDS_ENABLED_STORAGE_KEY,
+    GEMINI_API_KEY_STORAGE_KEY,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
     METADATA_STORAGE_KEY,
@@ -10,6 +13,7 @@ import {
 
 const resolveEnabledSetting = (value: unknown): boolean => value !== false;
 const resolveZenModeSetting = (value: unknown): boolean => value === true;
+const resolveFlashcardsEnabledSetting = (value: unknown): boolean => value === true;
 
 const getStorageSnapshot = (): Promise<StorageSnapshot> =>
     new Promise((resolve) => {
@@ -26,7 +30,10 @@ const getStorageSnapshot = (): Promise<StorageSnapshot> =>
                 ZEN_MODE_STORAGE_KEY,
                 MD_EXPORT_ENABLED_STORAGE_KEY,
                 MD_TEMPLATE_STORAGE_KEY,
-                DELETE_HOLD_ENABLED_STORAGE_KEY
+                DELETE_HOLD_ENABLED_STORAGE_KEY,
+                FLASHCARDS_ENABLED_STORAGE_KEY,
+                GEMINI_API_KEY_STORAGE_KEY,
+                FLASHCARDS_CACHE_STORAGE_KEY
             ],
             (result) => {
                 if (chrome.runtime && chrome.runtime.lastError) {
@@ -140,14 +147,100 @@ const persistDeleteHoldEnabled = (isEnabled: boolean): Promise<void> =>
         });
     });
 
+const persistFlashcardsEnabled = (isEnabled: boolean): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.set({ [FLASHCARDS_ENABLED_STORAGE_KEY]: isEnabled }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
+const persistGeminiApiKey = (apiKey: string): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.set({ [GEMINI_API_KEY_STORAGE_KEY]: apiKey }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
+const removeGeminiApiKey = (): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.remove(GEMINI_API_KEY_STORAGE_KEY, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
+const persistFlashcardsCache = (cache: FlashcardsCache): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.set({ [FLASHCARDS_CACHE_STORAGE_KEY]: cache }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
+const removeFlashcardsCache = (): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.remove(FLASHCARDS_CACHE_STORAGE_KEY, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
 export {
     getStorageSnapshot,
     persistBackupPayload,
     persistDeleteHoldEnabled,
+    persistFlashcardsCache,
+    persistFlashcardsEnabled,
+    persistGeminiApiKey,
     persistMdExportEnabled,
     persistMdTemplate,
     persistNotesEnabled,
     persistZenModeEnabled,
+    removeFlashcardsCache,
+    removeGeminiApiKey,
     resolveEnabledSetting,
+    resolveFlashcardsEnabledSetting,
     resolveZenModeSetting
 };

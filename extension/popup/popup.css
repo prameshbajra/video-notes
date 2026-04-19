@@ -726,3 +726,70 @@ body {
     border-radius: 3px;
     font-size: 11px;
 }
+
+.flashcards-key-section {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background-color: var(--background);
+    border: 1px solid var(--divider);
+}
+
+.flashcards-key-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.flashcards-key-input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--divider);
+    background-color: var(--background);
+    color: inherit;
+    font: inherit;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.flashcards-key-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.flashcards-key-hint {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.flashcards-key-hint a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.flashcards-key-hint a:hover {
+    text-decoration: underline;
+}
+
+.flashcards-key-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.flashcards-key-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.flashcards-key-status__label {
+    font-size: 13px;
+    color: var(--muted);
+}

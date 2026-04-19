@@ -20,7 +20,10 @@ const state: PopupState = {
     isMdExportEnabled: false,
     mdTemplate: DEFAULT_MD_TEMPLATE,
     isDeleteHoldEnabled: true,
-    sharedUrls: new Map<string, string>()
+    sharedUrls: new Map<string, string>(),
+    isFlashcardsEnabled: false,
+    hasGeminiApiKey: false,
+    isEnteringGeminiKey: false
 };
 
 const elements: PopupElements = {
@@ -40,7 +43,16 @@ const elements: PopupElements = {
     zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null,
     mdExportToggle: document.getElementById('md-export-toggle') as HTMLInputElement | null,
     mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null,
-    deleteHoldToggle: document.getElementById('delete-hold-toggle') as HTMLInputElement | null
+    deleteHoldToggle: document.getElementById('delete-hold-toggle') as HTMLInputElement | null,
+    flashcardsToggle: document.getElementById('flashcards-toggle') as HTMLInputElement | null,
+    flashcardsKeySection: document.getElementById('flashcards-key-section') as HTMLDivElement | null,
+    flashcardsKeyPrompt: document.getElementById('flashcards-key-prompt') as HTMLDivElement | null,
+    flashcardsKeyStatus: document.getElementById('flashcards-key-status') as HTMLDivElement | null,
+    flashcardsKeyInput: document.getElementById('flashcards-key-input') as HTMLInputElement | null,
+    flashcardsKeySaveButton: document.getElementById('flashcards-key-save') as HTMLButtonElement | null,
+    flashcardsKeyCancelButton: document.getElementById('flashcards-key-cancel') as HTMLButtonElement | null,
+    flashcardsKeyClearButton: document.getElementById('flashcards-key-clear') as HTMLButtonElement | null,
+    flashcardsPanel: document.getElementById('flashcards-panel') as HTMLDivElement | null
 };
 
 const syncNotesToggle = (isEnabled: boolean): void => {
@@ -75,6 +87,55 @@ const syncDeleteHoldToggle = (isEnabled: boolean): void => {
     state.isDeleteHoldEnabled = isEnabled;
     if (elements.deleteHoldToggle) {
         elements.deleteHoldToggle.checked = isEnabled;
+    }
+};
+
+const syncFlashcardsSettingsUi = (): void => {
+    if (elements.flashcardsToggle) {
+        elements.flashcardsToggle.checked = state.isFlashcardsEnabled;
+    }
+
+    const section = elements.flashcardsKeySection;
+    const prompt = elements.flashcardsKeyPrompt;
+    const status = elements.flashcardsKeyStatus;
+
+    if (!section || !prompt || !status) {
+        return;
+    }
+
+    const showSection = state.isFlashcardsEnabled || state.isEnteringGeminiKey;
+    section.hidden = !showSection;
+
+    const showPrompt = state.isEnteringGeminiKey || (state.isFlashcardsEnabled && !state.hasGeminiApiKey);
+    prompt.hidden = !showPrompt;
+    status.hidden = !(state.isFlashcardsEnabled && state.hasGeminiApiKey && !state.isEnteringGeminiKey);
+
+    if (!showPrompt && elements.flashcardsKeyInput) {
+        elements.flashcardsKeyInput.value = '';
+    }
+};
+
+const syncFlashcardsToggle = (isEnabled: boolean): void => {
+    state.isFlashcardsEnabled = isEnabled;
+    if (!isEnabled) {
+        state.isEnteringGeminiKey = false;
+    }
+    syncFlashcardsSettingsUi();
+};
+
+const syncGeminiApiKeyPresence = (hasKey: boolean): void => {
+    state.hasGeminiApiKey = hasKey;
+    if (hasKey) {
+        state.isEnteringGeminiKey = false;
+    }
+    syncFlashcardsSettingsUi();
+};
+
+const setEnteringGeminiKey = (isEntering: boolean): void => {
+    state.isEnteringGeminiKey = isEntering;
+    syncFlashcardsSettingsUi();
+    if (isEntering && elements.flashcardsKeyInput) {
+        elements.flashcardsKeyInput.focus();
     }
 };
 
@@ -160,11 +221,14 @@ const showToast = (message: string, variant: 'success' | 'error' = 'success'): v
 export {
     elements,
     setActiveView,
+    setEnteringGeminiKey,
     setSettingsMessage,
     shouldCloseOnNavigate,
     showToast,
     state,
     syncDeleteHoldToggle,
+    syncFlashcardsToggle,
+    syncGeminiApiKeyPresence,
     syncMdExportToggle,
     syncMdTemplate,
     syncNotesToggle,

@@ -5,6 +5,12 @@ const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
 const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
+const FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:flashcardsEnabled';
+const GEMINI_API_KEY_STORAGE_KEY = 'videoNotes:geminiApiKey';
+const FLASHCARDS_CACHE_STORAGE_KEY = 'videoNotes:flashcardsCache';
+const FLASHCARDS_DECK_SIZE = 12;
+const FLASHCARDS_MIN_NOTES = 6;
+const FLASHCARDS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_MD_TEMPLATE = '[*video-title*](*youtube-url*)\n\n- *time-url*: *note*';
 const HOLD_DURATION_MS = 2000;
 const VIEW_NOTES = 'notes';
@@ -16,6 +22,12 @@ export {
     DEFAULT_MD_TEMPLATE,
     DELETE_HOLD_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
+    FLASHCARDS_CACHE_STORAGE_KEY,
+    FLASHCARDS_CACHE_TTL_MS,
+    FLASHCARDS_DECK_SIZE,
+    FLASHCARDS_ENABLED_STORAGE_KEY,
+    FLASHCARDS_MIN_NOTES,
+    GEMINI_API_KEY_STORAGE_KEY,
     HOLD_DURATION_MS,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
