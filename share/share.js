@@ -115,7 +115,7 @@
             emptyState.innerHTML =
                 '<div class="empty-icon">📝</div>' +
                 '<p>No notes were shared for this video.</p>' +
-                '<p style="color:#555;font-size:12px;margin-top:8px;">Notes may have been cleared before sharing.</p>';
+                '<p style="color:rgba(245, 245, 247, 0.42);font-size:12px;margin-top:8px;">Notes may have been cleared before sharing.</p>';
             notesPanel.appendChild(notesHeader);
             notesPanel.appendChild(emptyState);
         } else {

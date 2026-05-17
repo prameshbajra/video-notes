@@ -62,6 +62,12 @@ interface ThemePalette {
     noteDotBorder: string;
     noteDotShadow: string;
     noteDotShadowActive: string;
+    accent: string;
+    accentStrong: string;
+    accentMuted: string;
+    accentContrast: string;
+    noteDotCore: string;
+    noteDotHighlight: string;
 }
 
 interface ThemeState {

@@ -97,14 +97,15 @@ const createTooltip = (
     });
 
     const saveButton = createButton('Save', {
-        backgroundColor: '#3ea6ff',
-        color: '#000000',
+        backgroundColor: palette.accent,
+        color: palette.accentContrast,
         border: 'none',
         padding: '8px 16px',
         fontSize: '14px',
         fontWeight: '600',
         borderRadius: '999px',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        transition: 'background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease'
     });
 
     leftGroup.appendChild(deleteButton);
@@ -243,8 +244,8 @@ const createContainer = (palette: ThemePalette): UiElements => {
     const addButton = createButton('+ Add note', {
         borderRadius: '999px',
         border: 'none',
-        backgroundColor: '#3ea6ff',
-        color: '#ffffff',
+        backgroundColor: palette.accent,
+        color: palette.accentContrast,
         fontSize: '14px',
         fontWeight: '600',
         lineHeight: '1.2',
@@ -252,7 +253,8 @@ const createContainer = (palette: ThemePalette): UiElements => {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '6px 14px'
+        padding: '6px 14px',
+        transition: 'background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease'
     });
     addButton.id = 'video-notes-add-button';
     addButton.setAttribute('aria-label', 'Add a note for the current moment');
