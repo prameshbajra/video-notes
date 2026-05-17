@@ -1051,6 +1051,10 @@ section {
   padding: 1px 8px;
   border-radius: 6px;
 }
+.privacy-actions {
+  text-align: center;
+  margin-top: 40px;
+}
 
 /* ----- Share section ----- */
 
@@ -1540,7 +1544,7 @@ section {
   .nav-cta { padding: 10px 16px; font-size: 13px; }
   .nav-toggle { width: 44px; height: 44px; }
   .hero-actions, .cta-actions { flex-direction: column; align-items: stretch; gap: 10px; }
-  .hero-actions .btn, .cta-actions .btn { justify-content: center; width: 100%; }
+  .hero-actions .btn, .cta-actions .btn, .privacy-actions .btn { justify-content: center; width: 100%; }
   .vn-btn { padding: 8px 12px; }
 
   .vn-tooltip { white-space: normal; max-width: min(260px, 80vw); }
