@@ -19,24 +19,11 @@ if (nav && navToggle) {
 
     navLinks.forEach((link) => {
         link.addEventListener("click", () => {
-            if (window.innerWidth <= 900) {
-                closeNav();
-            }
+            if (window.innerWidth <= 900) closeNav();
         });
     });
 }
 
-const handleScroll = () => {
-    if (!nav) return;
-    const shouldStick = window.scrollY > 10;
-    nav.classList.toggle("is-scrolled", shouldStick);
-};
-
-handleScroll();
-window.addEventListener("scroll", handleScroll, { passive: true });
-
 window.addEventListener("resize", () => {
-    if (window.innerWidth > 900) {
-        closeNav();
-    }
+    if (window.innerWidth > 900) closeNav();
 });

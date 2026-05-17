@@ -1,500 +1,485 @@
 <!DOCTYPE html>
 <html lang="en">
 
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Video Notes for YouTube</title>
-        <meta name="description"
-            content="Video Notes is a Chrome extension that captures timestamped ideas right on YouTube. Learn how the inline workspace, timeline, and popup dashboard keep every insight within reach." />
-        <meta name="keywords" content="YouTube notes, timestamped notes, Chrome extension, productivity, inline workspace" />
-        <meta name="author" content="Pramesh Bajracharya" />
-        <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://prameshbajra.github.io/video-notes/" />
-        <meta property="og:title" content="Video Notes for YouTube" />
-        <meta property="og:description"
-            content="Capture timestamped ideas without leaving YouTube. Pause playback, jot notes inline, and reopen every insight from a searchable popup." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://prameshbajra.github.io/video-notes/" />
-        <meta property="og:site_name" content="Video Notes" />
-        <meta property="og:locale" content="en_US" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="Video Notes interface layered on top of YouTube" />
-        <meta property="og:image:type" content="image/svg+xml" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Video Notes for YouTube" />
-        <meta name="twitter:description" content="Take timestamped notes inside YouTube, organize everything offline, and search from a popup dashboard." />
-        <meta name="twitter:image:alt" content="Video Notes inline workspace preview over a mock YouTube player" />
-        <meta name="theme-color" content="#040714" />
-        <link rel="icon" type="image/png" sizes="16x16" href="extension/icons/icon-16.png" />
-        <link rel="icon" type="image/png" sizes="48x48" href="extension/icons/icon-48.png" />
-        <link rel="stylesheet" href="index.css" />
-        <script type="application/ld+json">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Notes for YouTube</title>
+    <meta name="description"
+        content="Video Notes is a Chrome extension that anchors timestamped notes to the exact second of any YouTube video. Capture in flow, search across every video, share with one click." />
+    <meta name="keywords"
+        content="YouTube notes, timestamped notes, Chrome extension, productivity, inline workspace, flash cards" />
+    <meta name="author" content="Pramesh Bajracharya" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://prameshbajra.github.io/video-notes/" />
+    <meta property="og:title" content="Video Notes for YouTube" />
+    <meta property="og:description"
+        content="A small Chrome extension that anchors your thoughts to the exact second of the video that produced them. Press a key, write, return at will." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://prameshbajra.github.io/video-notes/" />
+    <meta property="og:site_name" content="Video Notes" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Video Notes interface layered on top of YouTube" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Video Notes for YouTube" />
+    <meta name="twitter:description"
+        content="Take timestamped notes inside YouTube, organize everything offline, and search from a popup dashboard." />
+    <meta name="twitter:image:alt" content="Video Notes inline workspace preview over a mock YouTube player" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/png" sizes="16x16" href="extension/icons/icon-16.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="extension/icons/icon-48.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="index.css" />
+    <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Video Notes for YouTube",
-        "operatingSystem": "Chrome, Brave",
+        "operatingSystem": "Chrome, Brave, Edge, Firefox",
         "applicationCategory": "ProductivityApplication",
-        "description": "Video Notes injects an inline workspace on YouTube so you can capture timestamped thoughts, pause playback while typing, and revisit everything from a searchable popup.",
+        "description": "Video Notes anchors timestamped notes to YouTube videos with a one-key shortcut, a searchable popup index, shareable read-only links, and flash-card review.",
         "url": "https://prameshbajra.github.io/video-notes/",
-        "creator": {
-          "@type": "Person",
-          "name": "Pramesh Bajracharya"
-        },
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
+        "creator": { "@type": "Person", "name": "Pramesh Bajracharya" },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
-    </head>
+</head>
 
-    <body>
-        <div class="background-glow" aria-hidden="true"></div>
-        <header class="hero" id="home">
-            <nav class="site-nav" data-nav aria-label="Primary navigation">
-                <a class="logo" href="#home">Video Notes</a>
-                <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" data-nav-toggle>
-                    <span></span>
-                    <span></span>
-                </button>
-                <div class="nav-links" id="primary-nav">
-                    <a href="#workflow">Workflow</a>
-                    <a href="#storage">Storage</a>
-                    <a href="#popup">Popup</a>
-                    <a href="#zen-mode">Features</a>
-                    <a href="#open-source">Open source</a>
-                    <a href="#faq">FAQ</a>
-                    <a href="privacy.html">Privacy</a>
-                    <a class="cta-link" href="https://github.com/prameshbajra/yt-notes" rel="noreferrer noopener">
-                        View on GitHub
-                    </a>
-                </div>
+<body>
+    <header class="site-nav" data-nav>
+        <div class="nav-inner">
+            <a class="nav-brand" href="#home">
+                <img src="extension/icons/icon-128.png" alt="Video Notes" />
+                <span>Video Notes</span>
+            </a>
+            <nav class="nav-links" id="primary-nav" aria-label="Primary navigation">
+                <a href="#capture">Capture</a>
+                <a href="#timeline">Timeline</a>
+                <a href="#popup">Popup</a>
+                <a href="#privacy">Privacy</a>
+                <a href="#share">Share</a>
             </nav>
-            <div class="hero-inner container">
-                <div class="hero-copy">
-                    <h1>Remember every insight without leaving YouTube.</h1>
-                    <p class="lead">
-                        Video Notes injects a lightweight workspace above the video title,
-                        pauses playback when you jot something down, and pins every thought
-                        to an interactive timeline so you can jump back instantly.
-                    </p>
-                    <p>
-                        Perfect for capturing ideas, notes, and action items while watching
-                        videos.
-                    </p>
-                    <div class="hero-actions">
-                        <a class="button primary" href="https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom" target="_blank">Install extension</a>
-                    </div>
-                    <div class="hero-badges">
-                        <span class="chip">Works on youtube.com/watch</span>
-                        <span class="chip">Alt/Option + N shortcut</span>
-                        <span class="chip">Notes stored offline</span>
-                        <span class="chip">Zen mode</span>
-                        <span class="chip">Shareable note links</span>
-                        <span class="chip">Markdown export</span>
-                    </div>
-                </div>
-                <div class="hero-media" aria-hidden="true">
-                    <div class="mock-player">
-                        <div class="mock-header">
-                            <div class="mock-title-bar"></div>
-                            <div class="mock-controls">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                        </div>
-                        <div class="mock-toolbar">
-                            <div class="mock-logo">Video Notes</div>
-                            <button class="mock-button">+ Add note</button>
-                        </div>
-                        <div class="mock-note">
-                            <div class="mock-note-time">02:41</div>
-                            <div>
-                                <p class="mock-note-title">Key insight captured</p>
-                                <p class="mock-note-text">
-                                    Playback pauses while you type, then resumes automatically.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="mock-track">
-                            <span style="left: 10%"></span>
-                            <span style="left: 28%"></span>
-                            <span style="left: 55%"></span>
-                            <span style="left: 80%"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
+            <a class="nav-cta" href="https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom" rel="noreferrer noopener">Add to Chrome</a>
+            <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" data-nav-toggle>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
 
-        <main class="container">
-            <section id="workflow" class="section highlight">
-                <div class="section-heading">
-                    <p class="eyebrow">How it fits in</p>
-                    <h2>Fast capture without leaving flow.</h2>
-                </div>
-                <ol class="workflow-steps">
-                    <li>
-                        Open any video on <strong>youtube.com/watch</strong>. Video Notes
-                        injects itself above the title and binds to the active player even
-                        as YouTube navigates between videos.
-                    </li>
-                    <li>
-                        Tap <strong>+ Add note</strong> or press <strong>Alt + N</strong>.
-                        Playback pauses automatically so you can type, or delete
-                        without missing a beat.
-                    </li>
-                    <li>
-                        Hover and click markers along the timeline or use the popup search
-                        to reopen everything you’ve captured, sorted by timestamp.
-                    </li>
-                </ol>
-            </section>
-
-            <section id="storage" class="section split">
-                <div class="split-copy">
-                    <p class="eyebrow">Storage model</p>
-                    <h2>Completely offline - with export and import feature</h2>
-                    <p>
-                        Video Notes runs 100% offline. Everything is written to
-                        <code>chrome.storage.local</code>, split across
-                        <code>videoNotes:notes</code> and <code>videoNotes:metadata</code>,
-                        so your highlights never leave the device yet stay instantly
-                        available to both the content script and popup.
-                    </p>
-                    <ul class="checklist">
-                        <li>Offline-first: no sync servers or network permissions</li>
-                        <li>Video titles & counts for lightning-fast summaries</li>
-                        <li>Automatic refresh whenever local data changes</li>
-                    </ul>
-                </div>
-                <div class="split-panel" aria-hidden="true">
-                    <pre class="code-block">
-{
-  "videoNotes:notes": {
-    "dQw4w9WgXcQ": [
-      {
-        "timestamp": 161.23,
-        "text": "Hook enters early",
-        "updatedAt": 1698889999999
-      }
-    ]
-  },
-  "videoNotes:metadata": {
-    "dQw4w9WgXcQ": {
-      "title": "Creator Deep Dive",
-      "noteCount": 4
-    }
-  }
-}
-                    </pre>
-                </div>
-            </section>
-
-            <section id="popup" class="section panel">
-                <div class="panel-copy">
-                    <p class="eyebrow">Popup dashboard</p>
-                    <h2>Search across everything you’ve stored.</h2>
-                    <p>
-                        The popup UI (pure HTML/CSS/JS) lists all your notes across videos, with timestamps
-                        that open the video in a new tab right where you left off. A built-in search
-                        field filters results as you type, so you can find that one insight.
-                    </p>
-                </div>
-                <div class="panel-visual" aria-hidden="true">
-                    <div class="popup-mock">
-                        <div class="popup-header">
-                            <div>Video Notes</div>
-                            <div class="popup-pill">Search ready</div>
-                        </div>
-                        <div class="popup-search"></div>
-                        <div class="popup-card">
-                            <div class="popup-title">
-                                <strong>Deep Learning Walkthrough</strong>
-                                <span>3 notes</span>
-                            </div>
-                            <ul>
-                                <li>
-                                    01:12 &mdash; “Define loss function”
-                                </li>
-                                <li>
-                                    04:48 &mdash; “Timeline markers stay in sync”
-                                </li>
-                                <li>
-                                    08:10 &mdash; “Open in new tab at timestamp”
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="zen-mode" class="section split">
-                <div class="split-copy">
-                    <p class="eyebrow">Focus mode</p>
-                    <h2>Strip away distractions, keep the video.</h2>
-                    <p>
-                        Zen Mode hides recommendations, comments, and merchandise while
-                        expanding the player to near-full width with theater mode. Toggle
-                        it from the notes header &mdash; your preference persists across reloads.
-                    </p>
-                    <ul class="checklist">
-                        <li>Hides sidebar, comments &amp; merch shelf</li>
-                        <li>Auto-enables theater mode for immersive viewing</li>
-                        <li>Remembers your preference across page reloads</li>
-                    </ul>
-                </div>
-                <div class="split-panel" aria-hidden="true">
-                    <div class="mock-zen">
-                        <div class="mock-zen-topbar">
-                            <span>Video Notes</span>
-                            <span class="mock-zen-badge">Zen on</span>
-                        </div>
-                        <div class="mock-zen-video">Full-width player</div>
-                        <div class="mock-zen-hidden">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="share" class="section panel">
-                <div class="panel-copy">
-                    <p class="eyebrow">Collaboration</p>
-                    <h2>Share your notes with a single click.</h2>
-                    <p>
-                        Hit the Share button and Video Notes generates a unique link
-                        bundling your video title and every timestamped note into a
-                        clean read-only page. The URL is copied to your clipboard
-                        automatically.
-                    </p>
-                </div>
-                <div class="panel-visual" aria-hidden="true">
-                    <div class="mock-share">
-                        <div class="mock-share-header">
-                            <span>Deep Learning Walkthrough</span>
-                            <button class="mock-share-btn">Share</button>
-                        </div>
-                        <div class="mock-share-toast">Share link copied to clipboard!</div>
-                        <div class="mock-share-url">videonotes.app/s/a3f8k2...</div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="notes-page" class="section highlight">
-                <div class="section-heading">
-                    <p class="eyebrow">Dedicated workspace</p>
-                    <h2>A full page for all your notes.</h2>
-                </div>
-                <p>
-                    Need more room than the popup? Open the dedicated notes page for a
-                    full-screen experience &mdash; search across every video, export and import
-                    backups, manage settings, and review notes at your own pace.
-                </p>
-            </section>
-
-            <section id="features" class="section features-section">
-                <div class="section-heading">
-                    <p class="eyebrow">Details that matter</p>
-                    <h2>Small touches, big difference.</h2>
-                </div>
-                <div class="features-grid">
-                    <article class="feature-card">
-                        <h3>Markdown Export</h3>
-                        <p>
-                            Copy notes as formatted markdown with a customizable template.
-                            Use placeholders like <code>*video-title*</code>, <code>*time-url*</code>,
-                            and <code>*note*</code> to shape the output for Obsidian, Notion,
-                            or any markdown tool.
-                        </p>
-                    </article>
-                    <article class="feature-card">
-                        <h3>Hold-to-Confirm Delete</h3>
-                        <p>
-                            Delete buttons require a two-second press-and-hold with an
-                            animated progress ring. Enabled by default, optional in settings.
-                        </p>
-                    </article>
-                    <article class="feature-card">
-                        <h3>Timeline Hover Previews</h3>
-                        <p>
-                            Hover over any note marker on the timeline to preview the note
-                            text without clicking. Scan your notes at a glance and jump to
-                            the one you need.
-                        </p>
-                    </article>
-                </div>
-            </section>
-
-            <section id="open-source" class="section highlight">
-                <div class="section-heading">
-                    <p class="eyebrow">Open source</p>
-                    <h2>Built in the open so you can shape it.</h2>
-                </div>
-                <p>
-                    Video Notes is fully open source on GitHub. If you spot a bug, want to polish
-                    the UI, or have a feature idea, you can dive into the repository, open an issue,
-                    or send a pull request.
-                </p>
+    <main id="home">
+        <!-- HERO -->
+        <section class="hero section--light">
+            <div class="hero-copy">
+                <p class="eyebrow eyebrow-lg">Video Notes</p>
+                <h1 class="display h1">Remember every insight, without leaving <span class="accent-text">YouTube</span>.</h1>
+                <p class="lead">A small Chrome extension that anchors your thoughts to the exact second of the video that produced them. <em>Press a key, write, return at will.</em></p>
                 <div class="hero-actions">
-                    <a class="button primary" href="https://github.com/prameshbajra/yt-notes" rel="noreferrer noopener">
-                        Explore the code
-                    </a>
+                    <a class="btn btn--filled" href="https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom" rel="noreferrer noopener">Add to Chrome &nbsp;›</a>
+                    <a class="btn btn--outline" href="https://youtu.be/rOi7xQ8DLpo?si=OpWF5CIDSqxy5SQ4" target="_blank" rel="noreferrer noopener">See it in action  &nbsp;›</a>
                 </div>
-            </section>
+            </div>
+            <div class="hero-mock">
+                <div class="yt-mock" aria-hidden="true">
+                    <div class="yt-chrome">
+                        <div class="yt-dots"><span></span><span></span><span></span></div>
+                        <div class="yt-url"><span class="secure">●</span>youtube.com/watch?v=dQw4w9WgXcQ</div>
+                    </div>
+                    <div class="yt-topbar">
+                        <div class="yt-brand">
+                            <svg width="22" height="16" viewBox="0 0 28 20" fill="none"><rect width="28" height="20" rx="5" fill="#ff0033" /><path d="M11.5 6.2v7.6L18 10z" fill="#fff" /></svg>
+                            <span>YouTube</span>
+                        </div>
+                        <div class="yt-search"><span>🔍</span> Search</div>
+                        <div class="yt-user">
+                            <span>＋</span><span>🔔</span>
+                            <div class="yt-avatar"></div>
+                        </div>
+                    </div>
+                    <div class="yt-body">
+                        <div>
+                            <div class="yt-player">
+                                <div class="yt-play"><span><svg width="26" height="26" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg></span></div>
+                                <div class="yt-controls">
+                                    <div class="yt-progress">
+                                        <div class="yt-progress-fill"></div>
+                                        <div class="yt-progress-head"></div>
+                                    </div>
+                                    <div class="yt-control-row">
+                                        <span>▶</span><span>⏭</span>
+                                        <span class="mono">7:18 / 42:17</span>
+                                        <span class="spacer"></span>
+                                        <span>⚙</span><span>⛶</span>
+                                    </div>
+                                </div>
+                            </div>
 
-            <section id="faq" class="section faq-section">
-                <div class="section-heading">
-                    <p class="eyebrow">Answers in seconds</p>
-                    <h2>Video Notes at a glance.</h2>
-                </div>
-                <div class="faq-grid">
-                    <article class="faq-item">
-                        <h3>Does Video Notes work offline?</h3>
-                        <p>
-                            Yes. Every note and bit of metadata lives in
-                            <code>chrome.storage.local</code>, so your research stays private
-                            and accessible.
-                        </p>
-                    </article>
-                    <article class="faq-item">
-                        <h3>Can I export or import my notes?</h3>
-                        <p>
-                            The popup dashboard includes export and import controls under settings allowing you to backup and import notes between browsers or devices.
-                        </p>
-                    </article>
-                    <article class="faq-item">
-                        <h3>Will it slow down YouTube?</h3>
-                        <p>
-                            Video Notes injects lightweight HTML and listens for navigation
-                            events, so it adds virtually no load time and never touches the
-                            video stream itself.
-                        </p>
-                    </article>
-                    <article class="faq-item">
-                        <h3>What does Zen Mode do?</h3>
-                        <p>
-                            Zen Mode hides YouTube's recommendations sidebar, comments section,
-                            and merchandise shelf. It also expands the video to nearly full width
-                            and enables theater mode for a distraction-free experience.
-                        </p>
-                    </article>
-                    <article class="faq-item">
-                        <h3>How does sharing work?</h3>
-                        <p>
-                            Click the Share button to generate a unique read-only link. Your
-                            video title and timestamped notes are bundled into a shareable page
-                            and the URL is copied to your clipboard automatically.
-                        </p>
-                    </article>
-                    <article class="faq-item">
-                        <h3>Can I customize the markdown export?</h3>
-                        <p>
-                            Yes. Open settings in the popup and edit the markdown template.
-                            Available placeholders include <code>*video-title*</code>,
-                            <code>*youtube-url*</code>, <code>*time-url*</code>, and
-                            <code>*note*</code>.
-                        </p>
-                    </article>
-                </div>
-            </section>
+                            <div class="injected-wrap">
+                                <div class="injected-glow" aria-hidden="true"></div>
+                                <div class="injected-panel">
+                                    <div class="vn-panel vn-panel--light">
+                                        <div class="vn-head">
+                                            <span class="vn-title">Video Notes</span>
+                                            <div class="vn-buttons">
+                                                <button class="vn-btn">Zen mode</button>
+                                                <button class="vn-btn">Share</button>
+                                                <button class="vn-btn vn-btn--primary">+ Add note</button>
+                                            </div>
+                                        </div>
+                                        <div class="vn-track">
+                                            <div class="vn-track-inner">
+                                                <div class="vn-track-line"></div>
+                                                <span class="vn-dot" style="left: 8%"></span>
+                                                <span class="vn-dot vn-dot--focus" style="left: 26%"></span>
+                                                <span class="vn-dot" style="left: 48%"></span>
+                                                <span class="vn-dot" style="left: 70%"></span>
+                                                <span class="vn-dot" style="left: 88%"></span>
+                                                <div class="vn-tooltip" style="left: 26%">
+                                                    <span class="vn-tooltip-time">02:41</span>
+                                                    <span>Hook enters early — same framing as Ep. 07.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-            <section id="download" class="section cta-section">
-                <div class="cta-card">
-                    <p class="eyebrow">Ready when you are</p>
-                    <h2>Install once, capture notes on every video.</h2>
-                    <p>
-                        Add the Chrome extension (or build locally) in under a minute. No
-                        accounts, no servers, just a focused workspace above your favorite
-                        videos.
-                    </p>
-                    <div class="cta-actions">
-                        <a class="button primary" href="https://github.com/prameshbajra/yt-notes#install" rel="noreferrer noopener">
-                            Install from GitHub
-                        </a>
+                            <div class="yt-title">
+                                <div class="yt-title-text">Creator Deep Dive — Designing a sample-based synth from scratch</div>
+                                <div class="yt-meta">
+                                    <div class="yt-channel-pic"></div>
+                                    <span class="yt-channel-name">Adam Conover</span>
+                                    <span>2.4M views</span>
+                                    <span>•</span>
+                                    <span>3 months ago</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="yt-side">
+                            <div class="label">Up next</div>
+                            <div class="yt-up-next"><div class="thumb"></div><div><div class="t">Mastering at home</div><div class="ch">Tape Op</div></div></div>
+                            <div class="yt-up-next"><div class="thumb"></div><div><div class="t">Compression demystified</div><div class="ch">iZotope</div></div></div>
+                            <div class="yt-up-next"><div class="thumb"></div><div><div class="t">Modular for beginners</div><div class="ch">Sound on Sound</div></div></div>
+                            <div class="yt-up-next"><div class="thumb"></div><div><div class="t">The art of sampling</div><div class="ch">Beat Lab</div></div></div>
+                        </div>
                     </div>
                 </div>
-            </section>
-        </main>
-
-        <footer class="site-footer">
-            <div class="container footer-content">
-                <p>Video Notes &mdash; lightweight annotations for every YouTube moment.</p>
-                <a href="https://github.com/prameshbajra/yt-notes" rel="noreferrer noopener">
-                    View source
-                </a>
-                <a href="privacy.html">
-                    Privacy policy
-                </a>
-                <a href="https://prameshbajra.github.io" rel="noreferrer noopener">
-                    Find me here: prameshbajra.github.io
-                </a>
             </div>
-        </footer>
-        <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "Does Video Notes work offline?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Yes. Video Notes stores every timestamped idea in chrome.storage.local so your research stays private and accessible even when YouTube is offline."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Can I export or import my notes?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "The popup dashboard includes export and import controls under settings allowing you to backup and import notes between browsers or devices."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Will Video Notes slow down YouTube?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Video Notes injects lightweight HTML and listens for navigation events, so it adds virtually no load time and never touches the video stream itself."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "What does Zen Mode do?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Zen Mode hides YouTube's recommendations sidebar, comments section, and merchandise shelf. It also expands the video to nearly full width and enables theater mode for a distraction-free experience."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "How does sharing work?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Click the Share button to generate a unique read-only link. Your video title and timestamped notes are bundled into a shareable page and the URL is copied to your clipboard automatically."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Can I customize the markdown export?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Yes. Open settings in the popup and edit the markdown template. Available placeholders include *video-title*, *youtube-url*, *time-url*, and *note*."
-            }
-          }
-        ]
-      }
-    </script>
-        <script src="index.js" type="module"></script>
-    </body>
+        </section>
+
+        <!-- CAPTURE -->
+        <section id="capture" class="section--dark">
+            <div class="capture-grid">
+                <div class="capture-copy">
+                    <p class="eyebrow">Capture</p>
+                    <h2 class="display h2">One key.<br />Anywhere.<br /><span class="accent-text">Anytime.</span></h2>
+                    <p class="lead">Press <span class="kbd">⌥</span> <span class="kbd">N</span> on macOS, or <span class="kbd">Alt</span> <span class="kbd">N</span> on Windows, anywhere on a watch page. The video pauses, a writing surface opens at the current timestamp, you type. Hit return — the player picks up where you stopped.</p>
+                    <a class="link-accent" href="https://youtu.be/rOi7xQ8DLpo?si=OpWF5CIDSqxy5SQ4" target="_blank" rel="noreferrer noopener">See it in action &nbsp;›</a>
+                </div>
+                <div class="capture-stage">
+                    <div class="capture-bg-key" aria-hidden="true">⌥N</div>
+                    <div class="capture-panel">
+                        <div class="capture-panel-head">
+                            <div class="left">
+                                <span class="capture-rec-dot"></span>
+                                <span>Recording at 07:18</span>
+                            </div>
+                            <span class="capture-status">video paused</span>
+                        </div>
+                        <div class="capture-box">
+                            <span class="capture-time">07:18&nbsp;</span>
+                            <span class="capture-body">Re-watch the whiteboard segment. Loss vs. cost — he's conflating them</span><span class="capture-cursor">|</span>
+                        </div>
+                        <div class="capture-foot">
+                            <div class="capture-hints">
+                                <span class="kbd kbd--sm">↵</span><span>save &amp; resume</span>
+                                <span class="kbd kbd--sm">esc</span><span>cancel</span>
+                            </div>
+                            <button class="capture-save">Save note</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TIMELINE -->
+        <section id="timeline" class="section--light">
+            <div class="section-inner">
+                <div class="section-head">
+                    <p class="eyebrow">Timeline</p>
+                    <h2 class="display h2">The scrubber, <em class="accent">remembered.</em></h2>
+                    <p class="lead">Every note becomes a marker on the timeline. Hover for a preview. Click to jump straight to the moment that produced it. Six months later, the path back is still one second of effort.</p>
+                </div>
+                <div class="vn-big-frame">
+                    <div class="vn-panel vn-panel--big">
+                        <div class="vn-head">
+                            <span class="vn-title">Video Notes</span>
+                            <div class="vn-buttons">
+                                <button class="vn-btn">Zen mode</button>
+                                <button class="vn-btn">Share</button>
+                                <button class="vn-btn vn-btn--primary">+ Add note</button>
+                            </div>
+                        </div>
+                        <div class="vn-track">
+                            <div class="vn-track-inner">
+                                <div class="vn-track-line"></div>
+                                <span class="vn-dot" style="left: 8%"></span>
+                                <span class="vn-dot vn-dot--focus" style="left: 26%"></span>
+                                <span class="vn-dot" style="left: 48%"></span>
+                                <span class="vn-dot" style="left: 70%"></span>
+                                <span class="vn-dot" style="left: 88%"></span>
+                                <div class="vn-tooltip" style="left: 26%">
+                                    <span class="vn-tooltip-time">02:41</span>
+                                    <span>Hook enters early — same framing as Ep. 07.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="vn-big-foot">
+                        <span>00:00</span>
+                        <span>5 NOTES ANCHORED TO THIS VIDEO</span>
+                        <span>42:17</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- POPUP / SEARCH -->
+        <section id="popup" class="section--dark">
+            <div class="popup-grid">
+                <div class="popup-mock-wrap">
+                    <div class="popup-mock" aria-hidden="true">
+                        <div class="popup-head">
+                            <div class="brand">
+                                <div class="mark"></div>
+                                <span>Video Notes</span>
+                            </div>
+                            <span class="count">12 videos · 47 notes</span>
+                        </div>
+                        <div class="popup-body">
+                            <div class="popup-search">
+                                <span class="icon">🔍</span>
+                                <span>whiteboard</span>
+                                <span class="cursor">|</span>
+                                <span class="count">2 results</span>
+                            </div>
+                            <div class="popup-card">
+                                <div class="popup-card-head">
+                                    <span class="popup-card-title">Deep Learning Walkthrough</span>
+                                    <span class="popup-card-match">2 matches</span>
+                                </div>
+                                <div class="row"><span class="t">04:48</span><span>Markers stay in sync — clean.</span></div>
+                                <div class="row"><span class="t">08:10</span><span>Whiteboard math — verify on paper.</span></div>
+                            </div>
+                            <div class="popup-card">
+                                <div class="popup-card-head">
+                                    <span class="popup-card-title">Designing a Sample-Based Synth</span>
+                                    <span class="popup-card-match">1 match</span>
+                                </div>
+                                <div class="row"><span class="t">07:18</span><span>Re-watch the whiteboard segment.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <p class="eyebrow">Search</p>
+                    <h2 class="display h2"><em class="accent">Everything</em><br />you've noted.<br />One click away.</h2>
+                    <p class="lead">Click the extension icon. A searchable index of every note across every video appears, sorted by timestamp. Type to filter. Click a timestamp to open the video in a new tab at the exact second.</p>
+                    <a class="link-accent" href="#install">Try the search &nbsp;›</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- PRIVACY -->
+        <section id="privacy" class="section--soft">
+            <div class="section-inner">
+                <div class="section-head">
+                    <p class="eyebrow">Privacy</p>
+                    <h2 class="display h2">Yours by <em class="accent">default</em>.<br />Yours by <em class="accent">design</em>.</h2>
+                    <p class="lead">Every note lives in <span class="privacy-inline-code">chrome.storage.local</span> on your machine. No accounts. No sync. No servers. No telemetry.</p>
+                </div>
+                <div class="privacy-stats">
+                    <div class="stat-card"><div class="n">100%</div><div class="l">Offline by default</div></div>
+                    <div class="stat-card"><div class="n">0</div><div class="l">Network permissions</div></div>
+                    <div class="stat-card"><div class="n">142 KB</div><div class="l">Bundle size</div></div>
+                    <div class="stat-card"><div class="n">MIT</div><div class="l">Open source</div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SHARE -->
+        <section id="share" class="section--dark">
+            <div class="section-inner">
+                <div class="section-head">
+                    <p class="eyebrow">Share</p>
+                    <h2 class="display h2">A <em class="accent">read-only mirror</em>, on demand.</h2>
+                    <p class="lead">Hit Share and Video Notes spins up a unique link bundling the video and every timestamped note into a clean, read-only page. The URL lands in your clipboard. No account required — not for you, not for whoever opens it.</p>
+                </div>
+                <div class="share-page" aria-hidden="true">
+                    <div class="share-chrome">
+                        <div class="yt-dots"><span></span><span></span><span></span></div>
+                        <div class="url"><span class="secure">●</span>static-video-notes.pages.dev/?id=c99a3b60615245e4bacf52fdfab749be</div>
+                    </div>
+                    <div class="share-head">
+                        <div class="title">Designing a sample-based synth from scratch</div>
+                        <div class="sub">5 notes shared</div>
+                    </div>
+                    <div class="share-body">
+                        <div class="share-video">
+                            <div class="share-play"><div class="btn-shape"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="#fff" /></svg></div></div>
+                            <div class="share-icon">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                                    <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+                                </svg>
+                            </div>
+                            <div class="share-watch">
+                                <span class="label">Watch on</span>
+                                <svg width="56" height="14" viewBox="0 0 72 16" fill="none">
+                                    <rect x="0" y="0" width="22" height="16" rx="4" fill="#ff0033" />
+                                    <path d="M9 4.4v7.2L15 8z" fill="#fff" />
+                                    <text x="26" y="12" fill="#fff" font-family="-apple-system, system-ui, sans-serif" font-size="12" font-weight="700">YouTube</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="share-notes">
+                            <div class="share-notes-head"><span class="title">Notes</span><span class="count">5 notes</span></div>
+                            <div class="row"><span class="pill">00:34</span><span class="txt">Sidechain bus routing — try in Live tonight.</span></div>
+                            <div class="row"><span class="pill">02:41</span><span class="txt">Hook enters early — same framing as Ep. 07.</span></div>
+                            <div class="row"><span class="pill">07:18</span><span class="txt">Re-watch the whiteboard segment.</span></div>
+                            <div class="row"><span class="pill">12:08</span><span class="txt">Macro 3 mapped to filter cutoff.</span></div>
+                            <div class="row"><span class="pill">23:50</span><span class="txt">Email author re: dataset access.</span></div>
+                        </div>
+                    </div>
+                    <div class="share-foot">
+                        <span class="label">READ-ONLY · NO ACCOUNT REQUIRED</span>
+                        <span class="share-toast"><span>✓</span> Link copied to clipboard</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DETAILS -->
+        <section id="details" class="section--light">
+            <div class="section-inner">
+                <div class="section-head">
+                    <p class="eyebrow">And more</p>
+                    <h2 class="display h2">Small touches that add up.</h2>
+                </div>
+                <div class="details-grid">
+                    <article class="detail-card">
+                        <div class="detail-visual zen-visual">
+                            <div class="player">
+                                <div class="play"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="#0a0a0d" /></svg></div>
+                            </div>
+                            <div class="zen-strike">sidebar</div>
+                            <div class="zen-strike">comments</div>
+                            <div class="zen-strike">merch</div>
+                        </div>
+                        <div>
+                            <div class="detail-eyebrow">Zen mode</div>
+                            <h3>Just the lecture.</h3>
+                            <p>Hide recommendations, comments, merchandise. Promote theater mode. Preference persists.</p>
+                        </div>
+                    </article>
+
+                    <article class="detail-card">
+                        <div class="detail-visual hold-visual">
+                            <svg class="ring" width="86" height="86" viewBox="0 0 86 86">
+                                <circle cx="43" cy="43" r="36" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="6" />
+                                <circle cx="43" cy="43" r="36" fill="none" stroke="#ff453a" stroke-width="6" stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="68" transform="rotate(-90 43 43)" />
+                            </svg>
+                            <div class="icon">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6h18" />
+                                    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                                    <path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14" />
+                                    <path d="M10 11v6M14 11v6" />
+                                </svg>
+                            </div>
+                            <div class="label">HOLD · 1.3s</div>
+                        </div>
+                        <div>
+                            <div class="detail-eyebrow">Hold to delete</div>
+                            <h3>No accidental losses.</h3>
+                            <p>Delete on press-and-hold with an animated progress ring — enabled by default, toggle off in settings.</p>
+                        </div>
+                    </article>
+
+                    <article class="detail-card">
+                        <div class="detail-visual flash-visual">
+                            <div class="flash-card flash-card--back"></div>
+                            <div class="flash-card flash-card--mid"></div>
+                            <div class="flash-card flash-card--top">
+                                <div class="time">07:18</div>
+                                <div class="text">Re-watch whiteboard segment</div>
+                                <div class="flip">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 4v6h6" /><path d="M20 20v-6h-6" />
+                                        <path d="M20 10a8 8 0 0 0-14.5-4.5L4 10" /><path d="M4 14a8 8 0 0 0 14.5 4.5L20 14" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="detail-eyebrow">Flash cards</div>
+                            <h3>Review what stuck.</h3>
+                            <p>Bring your own Gemini API key (stored locally) and Video Notes turns every note you've ever taken into a flip-card deck for self-quizzing.</p>
+                        </div>
+                    </article>
+
+                    <article class="detail-card">
+                        <div class="detail-visual md-visual">
+                            <span class="accent">##</span> *video-title*<br />
+                            <span class="accent">-</span> *time-url* *note*<br />
+                            <span class="dim">// edit in settings</span>
+                        </div>
+                        <div>
+                            <div class="detail-eyebrow">Markdown</div>
+                            <h3>Pipe to anywhere.</h3>
+                            <p>Editable template — *video-title*, *time-url*, *note*. Drop into Obsidian or Notion.</p>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section id="install" class="section--dark cta">
+            <p class="eyebrow">Get Video Notes</p>
+            <h2 class="display cta-h">Install once.<br /><span class="accent-text">Take notes</span> on every video.</h2>
+            <p class="lead">Couple seconds to install. No account, no signup. The next video you open is ready to be noted down at the exact second, in your own words.</p>
+            <div class="cta-actions">
+                <a class="btn btn--filled-light" href="https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom" rel="noreferrer noopener">Add to Chrome — free</a>
+                <a class="btn btn--outline-light" href="https://github.com/prameshbajra/video-notes" rel="noreferrer noopener">View on GitHub</a>
+            </div>
+            <div class="cta-foot">
+                <span>v3.2 · 142 KB</span>
+                <span>MIT</span>
+                <span>Chrome · Brave · Edge · Firefox</span>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <span>Video Notes — built by Pramesh Bajracharya. MIT licensed.</span>
+            <div class="footer-links">
+                <a href="privacy.html">Privacy</a>
+                <a href="https://github.com/prameshbajra/video-notes" rel="noreferrer noopener">GitHub</a>
+                <a href="https://prameshbajra.github.io" rel="noreferrer noopener">prameshbajra.github.io</a>
+            </div>
+        </div>
+    </footer>
+    <script src="index.js" type="module"></script>
+</body>
 
 </html>
