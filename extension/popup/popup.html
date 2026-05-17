@@ -73,6 +73,50 @@
                     <p id="settings-message" class="settings-message" role="status" aria-live="polite"></p>
                 </div>
                 <div class="settings-content">
+                    <h2 class="settings-content__title">Flashcards</h2>
+                    <p class="settings-content__description">
+                        Turn your saved notes into a daily multiple-choice game. Uses Google Gemini to generate 12 fresh
+                        questions every day, playable from the notes page.
+                    </p>
+                    <label class="toggle">
+                        <div class="toggle__text">
+                            <span class="toggle__title">Enable flashcard mode</span>
+                            <span class="toggle__description">Requires a free Google Gemini API key.</span>
+                        </div>
+                        <input id="flashcards-toggle" class="toggle__input" type="checkbox" />
+                    </label>
+                    <div id="flashcards-key-section" class="flashcards-key-section" hidden>
+                        <div id="flashcards-key-prompt" class="flashcards-key-prompt" hidden>
+                            <label for="flashcards-key-input" class="flashcards-key-label">Gemini API key</label>
+                            <input
+                                id="flashcards-key-input"
+                                class="flashcards-key-input"
+                                type="password"
+                                autocomplete="off"
+                                spellcheck="false"
+                                placeholder="Paste your key here"
+                            />
+                            <p class="flashcards-key-hint">
+                                Get a free key at
+                                <a
+                                    href="https://aistudio.google.com/apikey"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    >Google AI Studio</a
+                                >. Stored locally on this device only.
+                            </p>
+                            <div class="flashcards-key-actions">
+                                <button id="flashcards-key-save" class="settings-button" type="button">Save key</button>
+                                <button id="flashcards-key-cancel" class="settings-button settings-button--secondary" type="button">Cancel</button>
+                            </div>
+                        </div>
+                        <div id="flashcards-key-status" class="flashcards-key-status" hidden>
+                            <span class="flashcards-key-status__label">API key saved.</span>
+                            <button id="flashcards-key-clear" class="settings-button settings-button--secondary" type="button">Clear key</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-content">
                     <h2 class="settings-content__title">Markdown Export</h2>
                     <p class="settings-content__description">
                         Copy notes as markdown to clipboard with a customizable template.

@@ -13,7 +13,7 @@ body[data-view-context="page"] {
 }
 
 .app--page {
-    max-width: 1024px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 20px 18px 28px;
     min-height: calc(100vh - 16px);
@@ -80,5 +80,294 @@ body[data-view-context="page"] .note-button__text {
 
     .app--page {
         padding: 16px;
+    }
+}
+
+.notes-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.notes-layout__main {
+    flex: 1;
+    min-width: 0;
+}
+
+.flashcards-panel {
+    border-radius: 14px;
+    background-color: var(--surface);
+    border: 1px solid var(--divider);
+    padding: 20px;
+    min-height: 240px;
+    align-self: flex-start;
+    position: relative;
+}
+
+@media (min-width: 1100px) {
+    .notes-layout:has(.flashcards-panel:not([hidden])) {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .notes-layout:has(.flashcards-panel:not([hidden])) .notes-layout__main {
+        flex: 0 0 70%;
+        max-width: 70%;
+    }
+
+    .flashcards-panel {
+        flex: 0 0 calc(30% - 16px);
+        max-width: calc(30% - 16px);
+        position: sticky;
+        top: 16px;
+    }
+}
+
+.flashcards__intro {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.flashcards__intro--complete .flashcards__title {
+    color: var(--accent);
+}
+
+.flashcards__title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.flashcards__description {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.flashcards__hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.flashcards__link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.flashcards__link:hover {
+    text-decoration: underline;
+}
+
+.flashcards__error {
+    margin: 0;
+    font-size: 12px;
+    color: var(--danger);
+}
+
+.flashcards__score {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.flashcards__spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 3px solid var(--divider);
+    border-top-color: var(--accent);
+    animation: flashcards-spin 900ms linear infinite;
+    margin-top: 6px;
+}
+
+@keyframes flashcards-spin {
+    to { transform: rotate(360deg); }
+}
+
+.flashcards__game {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.flashcards__progress {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+.flashcards__progress-bar {
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background-color: var(--divider);
+    overflow: hidden;
+}
+
+.flashcards__progress-bar-fill {
+    height: 100%;
+    background-color: var(--accent);
+    transition: width 200ms ease;
+}
+
+.flashcards__question {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.45;
+    font-weight: 600;
+}
+
+.flashcards__options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.flashcards__option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--divider);
+    background-color: var(--background);
+    cursor: pointer;
+    transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+}
+
+.flashcards__option:hover:not(:disabled),
+.flashcards__option:focus-visible:not(:disabled) {
+    outline: none;
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+    transform: translateY(-1px);
+}
+
+.flashcards__option:disabled {
+    cursor: default;
+}
+
+.flashcards__option--correct {
+    border-color: #15803d;
+    background-color: rgba(21, 128, 61, 0.12);
+    color: #15803d;
+}
+
+.flashcards__option--wrong {
+    border-color: var(--danger);
+    background-color: var(--danger-muted);
+    color: var(--danger);
+}
+
+.flashcards__option--dim {
+    opacity: 0.55;
+}
+
+.flashcards__option-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.flashcards__check {
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.flashcards__feedback {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--divider);
+    background-color: var(--background);
+}
+
+.flashcards__feedback--correct {
+    border-color: rgba(21, 128, 61, 0.4);
+    background-color: rgba(21, 128, 61, 0.08);
+}
+
+.flashcards__feedback--wrong {
+    border-color: var(--danger-border);
+    background-color: var(--danger-muted);
+}
+
+.flashcards__feedback-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.flashcards__feedback-correct {
+    margin: 0;
+    font-size: 13px;
+}
+
+.flashcards__source-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--divider);
+    background-color: var(--surface);
+    font: inherit;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    text-align: left;
+}
+
+.flashcards__source-link:hover,
+.flashcards__source-link:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+.flashcards__source-label {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.flashcards__source-timestamp {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.flashcards__next {
+    align-self: flex-start;
+}
+
+@media (prefers-color-scheme: dark) {
+    .flashcards__option--correct {
+        color: #4ade80;
+        border-color: rgba(74, 222, 128, 0.5);
+        background-color: rgba(74, 222, 128, 0.14);
+    }
+
+    .flashcards__feedback--correct {
+        border-color: rgba(74, 222, 128, 0.4);
+        background-color: rgba(74, 222, 128, 0.1);
     }
 }

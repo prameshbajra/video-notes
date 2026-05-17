@@ -125,6 +125,38 @@ interface BackupPayload {
 
 type StorageSnapshot = Record<string, unknown>;
 
+interface FlashcardSource {
+    videoId: string;
+    videoTitle: string;
+    timestamp: number;
+    noteText: string;
+}
+
+interface Flashcard {
+    question: string;
+    correctAnswer: string;
+    wrongAnswers: string[];
+    source: FlashcardSource;
+}
+
+interface FlashcardsCache {
+    deck: Flashcard[];
+    generatedAt: number;
+    noteIdsHash: string;
+}
+
+type FlashcardStatus = 'disabled' | 'ready' | 'loading' | 'playing' | 'complete' | 'error' | 'insufficient-notes';
+
+interface FlashcardGameState {
+    status: FlashcardStatus;
+    deck: Flashcard[];
+    currentIndex: number;
+    score: number;
+    answeredIds: Set<number>;
+    lastAnswer: { index: number; correct: boolean; selected: string } | null;
+    errorMessage: string | null;
+}
+
 interface PopupState {
     videos: VideoListItem[];
     expandedVideos: Set<string>;
@@ -136,6 +168,9 @@ interface PopupState {
     mdTemplate: string;
     isDeleteHoldEnabled: boolean;
     sharedUrls: Map<string, string>;
+    isFlashcardsEnabled: boolean;
+    hasGeminiApiKey: boolean;
+    isEnteringGeminiKey: boolean;
 }
 
 interface PopupElements {
@@ -156,4 +191,13 @@ interface PopupElements {
     mdExportToggle: HTMLInputElement | null;
     mdTemplateTextarea: HTMLTextAreaElement | null;
     deleteHoldToggle: HTMLInputElement | null;
+    flashcardsToggle: HTMLInputElement | null;
+    flashcardsKeySection: HTMLDivElement | null;
+    flashcardsKeyPrompt: HTMLDivElement | null;
+    flashcardsKeyStatus: HTMLDivElement | null;
+    flashcardsKeyInput: HTMLInputElement | null;
+    flashcardsKeySaveButton: HTMLButtonElement | null;
+    flashcardsKeyCancelButton: HTMLButtonElement | null;
+    flashcardsKeyClearButton: HTMLButtonElement | null;
+    flashcardsPanel: HTMLDivElement | null;
 }

@@ -22,8 +22,13 @@
                 <input id="search-input" class="header__search" type="search" placeholder="Search videos or notes" autocomplete="off" />
             </header>
             <div id="notes-view" class="view view--active">
-                <div id="empty-state" class="empty-state" hidden></div>
-                <ul id="video-list" class="video-list"></ul>
+                <div class="notes-layout">
+                    <div class="notes-layout__main">
+                        <div id="empty-state" class="empty-state" hidden></div>
+                        <ul id="video-list" class="video-list"></ul>
+                    </div>
+                    <aside id="flashcards-panel" class="flashcards-panel" aria-label="Flashcards" hidden></aside>
+                </div>
             </div>
         </div>
         <script type="module" src="../popup/ts/popup.js"></script>

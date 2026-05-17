@@ -2,6 +2,8 @@ import {
     DEFAULT_MD_TEMPLATE,
     DELETE_HOLD_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
+    FLASHCARDS_ENABLED_STORAGE_KEY,
+    GEMINI_API_KEY_STORAGE_KEY,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
     METADATA_STORAGE_KEY,
@@ -13,11 +15,14 @@ import {
 import {
     elements,
     setActiveView,
+    setEnteringGeminiKey,
     setSettingsMessage,
     shouldCloseOnNavigate,
     showToast,
     state,
     syncDeleteHoldToggle,
+    syncFlashcardsToggle,
+    syncGeminiApiKeyPresence,
     syncMdExportToggle,
     syncMdTemplate,
     syncNotesToggle,
@@ -39,13 +44,19 @@ import {
     getStorageSnapshot,
     persistBackupPayload,
     persistDeleteHoldEnabled,
+    persistFlashcardsEnabled,
+    persistGeminiApiKey,
     persistMdExportEnabled,
     persistMdTemplate,
     persistNotesEnabled,
     persistZenModeEnabled,
+    removeFlashcardsCache,
+    removeGeminiApiKey,
     resolveEnabledSetting,
+    resolveFlashcardsEnabledSetting,
     resolveZenModeSetting
 } from './storage.js';
+import { refreshFlashcardsPanel } from './flashcards.js';
 
 let templateDebounceTimer: number | null = null;
 
@@ -173,6 +184,36 @@ const handleDeleteHoldToggleChange = (event: Event): void => {
     updateDeleteHoldEnabled(isEnabled).catch(() => {});
 };
 
+const handleFlashcardsToggleChange = (event: Event): void => {
+    const target = event.target as HTMLInputElement | null;
+    const isEnabled = Boolean(target?.checked);
+    updateFlashcardsEnabled(isEnabled).catch(() => {});
+};
+
+const handleFlashcardsKeySaveClick = (): void => {
+    const input = elements.flashcardsKeyInput;
+    const rawKey = input ? input.value.trim() : '';
+
+    if (!rawKey) {
+        setSettingsMessage('Please paste your Gemini API key.', 'error');
+        return;
+    }
+
+    saveGeminiApiKey(rawKey).catch(() => {});
+};
+
+const handleFlashcardsKeyCancelClick = (): void => {
+    if (!state.hasGeminiApiKey) {
+        updateFlashcardsEnabled(false).catch(() => {});
+        return;
+    }
+    setEnteringGeminiKey(false);
+};
+
+const handleFlashcardsKeyClearClick = (): void => {
+    clearGeminiApiKey().catch(() => {});
+};
+
 const loadNotesEnabledFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
     const isEnabled = resolveEnabledSetting(snapshot[ENABLED_STORAGE_KEY]);
@@ -204,6 +245,15 @@ const loadDeleteHoldEnabledFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
     const isDeleteHoldEnabled = resolveEnabledSetting(snapshot[DELETE_HOLD_ENABLED_STORAGE_KEY]);
     syncDeleteHoldToggle(isDeleteHoldEnabled);
+};
+
+const loadFlashcardsSettingsFromStorage = async (): Promise<void> => {
+    const snapshot = await getStorageSnapshot();
+    const isEnabled = resolveFlashcardsEnabledSetting(snapshot[FLASHCARDS_ENABLED_STORAGE_KEY]);
+    const hasKey = typeof snapshot[GEMINI_API_KEY_STORAGE_KEY] === 'string' &&
+        (snapshot[GEMINI_API_KEY_STORAGE_KEY] as string).trim().length > 0;
+    syncGeminiApiKeyPresence(hasKey);
+    syncFlashcardsToggle(isEnabled);
 };
 
 const updateNotesEnabled = async (isEnabled: boolean): Promise<void> => {
@@ -265,6 +315,46 @@ const updateDeleteHoldEnabled = async (isEnabled: boolean): Promise<void> => {
     } catch {
         syncDeleteHoldToggle(previousValue);
         setSettingsMessage('Unable to update delete hold setting.', 'error');
+    }
+};
+
+const updateFlashcardsEnabled = async (isEnabled: boolean): Promise<void> => {
+    const previousValue = state.isFlashcardsEnabled;
+    syncFlashcardsToggle(isEnabled);
+
+    try {
+        await persistFlashcardsEnabled(isEnabled);
+        if (isEnabled && !state.hasGeminiApiKey) {
+            setEnteringGeminiKey(true);
+        }
+        refreshFlashcardsPanel();
+    } catch {
+        syncFlashcardsToggle(previousValue);
+        setSettingsMessage('Unable to update flashcard setting.', 'error');
+    }
+};
+
+const saveGeminiApiKey = async (apiKey: string): Promise<void> => {
+    try {
+        await persistGeminiApiKey(apiKey);
+        syncGeminiApiKeyPresence(true);
+        setEnteringGeminiKey(false);
+        setSettingsMessage('Gemini API key saved.', 'success');
+        refreshFlashcardsPanel();
+    } catch {
+        setSettingsMessage('Unable to save Gemini API key.', 'error');
+    }
+};
+
+const clearGeminiApiKey = async (): Promise<void> => {
+    try {
+        await removeGeminiApiKey();
+        await removeFlashcardsCache();
+        syncGeminiApiKeyPresence(false);
+        setSettingsMessage('Gemini API key removed.', 'success');
+        refreshFlashcardsPanel();
+    } catch {
+        setSettingsMessage('Unable to remove Gemini API key.', 'error');
     }
 };
 
@@ -529,6 +619,19 @@ const storageChangeHandler = (changes: Record<string, chrome.storage.StorageChan
     if (changes[NOTES_STORAGE_KEY] || changes[METADATA_STORAGE_KEY]) {
         loadVideos();
     }
+
+    if (changes[FLASHCARDS_ENABLED_STORAGE_KEY]) {
+        const nextEnabled = resolveFlashcardsEnabledSetting(changes[FLASHCARDS_ENABLED_STORAGE_KEY].newValue);
+        syncFlashcardsToggle(nextEnabled);
+        refreshFlashcardsPanel();
+    }
+
+    if (changes[GEMINI_API_KEY_STORAGE_KEY]) {
+        const newValue = changes[GEMINI_API_KEY_STORAGE_KEY].newValue;
+        const hasKey = typeof newValue === 'string' && newValue.trim().length > 0;
+        syncGeminiApiKeyPresence(hasKey);
+        refreshFlashcardsPanel();
+    }
 };
 
 const renderHandlers: RenderHandlers = {
@@ -569,6 +672,12 @@ const initialize = (): void => {
     loadDeleteHoldEnabledFromStorage().catch(() => {
         syncDeleteHoldToggle(true);
     });
+    loadFlashcardsSettingsFromStorage()
+        .then(() => refreshFlashcardsPanel())
+        .catch(() => {
+            syncFlashcardsToggle(false);
+            syncGeminiApiKeyPresence(false);
+        });
 
     if (elements.searchInput) {
         elements.searchInput.addEventListener('input', handleSearchInput);
@@ -616,6 +725,22 @@ const initialize = (): void => {
 
     if (elements.deleteHoldToggle) {
         elements.deleteHoldToggle.addEventListener('change', handleDeleteHoldToggleChange);
+    }
+
+    if (elements.flashcardsToggle) {
+        elements.flashcardsToggle.addEventListener('change', handleFlashcardsToggleChange);
+    }
+
+    if (elements.flashcardsKeySaveButton) {
+        elements.flashcardsKeySaveButton.addEventListener('click', handleFlashcardsKeySaveClick);
+    }
+
+    if (elements.flashcardsKeyCancelButton) {
+        elements.flashcardsKeyCancelButton.addEventListener('click', handleFlashcardsKeyCancelClick);
+    }
+
+    if (elements.flashcardsKeyClearButton) {
+        elements.flashcardsKeyClearButton.addEventListener('click', handleFlashcardsKeyClearClick);
     }
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
