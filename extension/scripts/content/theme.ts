@@ -274,18 +274,15 @@ const syncZenButtonAppearance = (palette: ThemePalette | null): void => {
         return;
     }
 
-    const accent = '#3ea6ff';
     const isActive = state.isZenModeEnabled;
-    const activeBackground =
-        themeState.mode === 'dark' ? 'rgba(62, 166, 255, 0.2)' : 'rgba(62, 166, 255, 0.12)';
 
     applyStyles(ui.zenButton, {
         borderRadius: '999px',
         padding: '6px 12px',
-        border: isActive ? '1px solid rgba(62, 166, 255, 0.7)' : palette.surfaceBorder,
-        backgroundColor: isActive ? activeBackground : palette.surfaceMuted,
-        color: isActive ? accent : palette.textPrimary,
-        boxShadow: isActive ? '0 4px 12px rgba(62, 166, 255, 0.18)' : 'none',
+        border: isActive ? `1px solid ${palette.accent}` : palette.surfaceBorder,
+        backgroundColor: isActive ? palette.accentMuted : palette.surfaceMuted,
+        color: isActive ? palette.accent : palette.textPrimary,
+        boxShadow: isActive ? `0 4px 12px ${palette.accentMuted}` : 'none',
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',
@@ -351,6 +348,14 @@ const applyThemeToUi = (palette: ThemePalette | null): void => {
         ui.trackHoverTooltip.style.color = palette.previewText;
         ui.trackHoverTooltip.style.border = palette.previewBorder;
         ui.trackHoverTooltip.style.boxShadow = palette.previewShadow;
+    }
+    if (ui.saveButton) {
+        ui.saveButton.style.backgroundColor = palette.accent;
+        ui.saveButton.style.color = palette.accentContrast;
+    }
+    if (ui.addButton) {
+        ui.addButton.style.backgroundColor = palette.accent;
+        ui.addButton.style.color = palette.accentContrast;
     }
 
     syncZenButtonAppearance(palette);

@@ -66,8 +66,7 @@ const renderNotesTrack = (): void => {
         dot.style.height = '16px';
         dot.style.borderRadius = '999px';
         dot.style.border = palette.noteDotBorder;
-        dot.style.background =
-            'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95) 0%, #cde8ff 45%, #3ea6ff 100%)';
+        dot.style.background = `radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95) 0%, ${palette.noteDotHighlight} 45%, ${palette.noteDotCore} 100%)`;
         dot.style.transform = 'translate(-50%, -50%)';
         dot.style.cursor = 'pointer';
         dot.style.transition = 'transform 140ms ease, box-shadow 140ms ease';
