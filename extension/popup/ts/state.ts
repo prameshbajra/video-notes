@@ -22,6 +22,7 @@ const state: PopupState = {
     isDeleteHoldEnabled: true,
     sharedUrls: new Map<string, string>(),
     isFlashcardsEnabled: false,
+    isNewTabFlashcardsEnabled: false,
     hasGeminiApiKey: false,
     isEnteringGeminiKey: false
 };
@@ -45,6 +46,7 @@ const elements: PopupElements = {
     mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null,
     deleteHoldToggle: document.getElementById('delete-hold-toggle') as HTMLInputElement | null,
     flashcardsToggle: document.getElementById('flashcards-toggle') as HTMLInputElement | null,
+    newTabFlashcardsToggle: document.getElementById('newtab-flashcards-toggle') as HTMLInputElement | null,
     flashcardsKeySection: document.getElementById('flashcards-key-section') as HTMLDivElement | null,
     flashcardsKeyPrompt: document.getElementById('flashcards-key-prompt') as HTMLDivElement | null,
     flashcardsKeyStatus: document.getElementById('flashcards-key-status') as HTMLDivElement | null,
@@ -121,6 +123,13 @@ const syncFlashcardsToggle = (isEnabled: boolean): void => {
         state.isEnteringGeminiKey = false;
     }
     syncFlashcardsSettingsUi();
+};
+
+const syncNewTabFlashcardsToggle = (isEnabled: boolean): void => {
+    state.isNewTabFlashcardsEnabled = isEnabled;
+    if (elements.newTabFlashcardsToggle) {
+        elements.newTabFlashcardsToggle.checked = isEnabled;
+    }
 };
 
 const syncGeminiApiKeyPresence = (hasKey: boolean): void => {
@@ -231,6 +240,7 @@ export {
     syncGeminiApiKeyPresence,
     syncMdExportToggle,
     syncMdTemplate,
+    syncNewTabFlashcardsToggle,
     syncNotesToggle,
     syncViewVisibility,
     syncZenModeToggle,

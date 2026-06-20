@@ -7,6 +7,7 @@ import {
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
     METADATA_STORAGE_KEY,
+    NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
     ZEN_MODE_STORAGE_KEY
 } from './constants.js';
@@ -14,6 +15,7 @@ import {
 const resolveEnabledSetting = (value: unknown): boolean => value !== false;
 const resolveZenModeSetting = (value: unknown): boolean => value === true;
 const resolveFlashcardsEnabledSetting = (value: unknown): boolean => value === true;
+const resolveNewTabFlashcardsEnabledSetting = (value: unknown): boolean => value === true;
 
 const getStorageSnapshot = (): Promise<StorageSnapshot> =>
     new Promise((resolve) => {
@@ -32,6 +34,7 @@ const getStorageSnapshot = (): Promise<StorageSnapshot> =>
                 MD_TEMPLATE_STORAGE_KEY,
                 DELETE_HOLD_ENABLED_STORAGE_KEY,
                 FLASHCARDS_ENABLED_STORAGE_KEY,
+                NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
                 GEMINI_API_KEY_STORAGE_KEY,
                 FLASHCARDS_CACHE_STORAGE_KEY
             ],
@@ -163,6 +166,22 @@ const persistFlashcardsEnabled = (isEnabled: boolean): Promise<void> =>
         });
     });
 
+const persistNewTabFlashcardsEnabled = (isEnabled: boolean): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.set({ [NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY]: isEnabled }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
 const persistGeminiApiKey = (apiKey: string): Promise<void> =>
     new Promise<void>((resolve, reject) => {
         if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
@@ -236,11 +255,13 @@ export {
     persistGeminiApiKey,
     persistMdExportEnabled,
     persistMdTemplate,
+    persistNewTabFlashcardsEnabled,
     persistNotesEnabled,
     persistZenModeEnabled,
     removeFlashcardsCache,
     removeGeminiApiKey,
     resolveEnabledSetting,
     resolveFlashcardsEnabledSetting,
+    resolveNewTabFlashcardsEnabledSetting,
     resolveZenModeSetting
 };

@@ -246,7 +246,7 @@ body {
 }
 
 .toggle + .toggle {
-    margin-top: 10px;
+    margin-top: 12px;
 }
 
 .toggle__text {

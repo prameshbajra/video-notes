@@ -1,0 +1,30 @@
+body {
+    min-height: 100vh;
+}
+
+.newtab {
+    min-height: 100vh;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.newtab__card {
+    width: 100%;
+    max-width: 560px;
+    border-radius: 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--divider);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+}
+
+.newtab__card--preparing {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+}

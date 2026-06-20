@@ -175,6 +175,7 @@ interface PopupState {
     isDeleteHoldEnabled: boolean;
     sharedUrls: Map<string, string>;
     isFlashcardsEnabled: boolean;
+    isNewTabFlashcardsEnabled: boolean;
     hasGeminiApiKey: boolean;
     isEnteringGeminiKey: boolean;
 }
@@ -198,6 +199,7 @@ interface PopupElements {
     mdTemplateTextarea: HTMLTextAreaElement | null;
     deleteHoldToggle: HTMLInputElement | null;
     flashcardsToggle: HTMLInputElement | null;
+    newTabFlashcardsToggle: HTMLInputElement | null;
     flashcardsKeySection: HTMLDivElement | null;
     flashcardsKeyPrompt: HTMLDivElement | null;
     flashcardsKeyStatus: HTMLDivElement | null;

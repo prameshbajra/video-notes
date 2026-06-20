@@ -7,6 +7,7 @@ import {
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
     METADATA_STORAGE_KEY,
+    NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
     VIEW_NOTES,
     VIEW_SETTINGS,
@@ -25,6 +26,7 @@ import {
     syncGeminiApiKeyPresence,
     syncMdExportToggle,
     syncMdTemplate,
+    syncNewTabFlashcardsToggle,
     syncNotesToggle,
     syncViewVisibility,
     syncZenModeToggle
@@ -48,14 +50,17 @@ import {
     persistGeminiApiKey,
     persistMdExportEnabled,
     persistMdTemplate,
+    persistNewTabFlashcardsEnabled,
     persistNotesEnabled,
     persistZenModeEnabled,
     removeFlashcardsCache,
     removeGeminiApiKey,
     resolveEnabledSetting,
     resolveFlashcardsEnabledSetting,
+    resolveNewTabFlashcardsEnabledSetting,
     resolveZenModeSetting
 } from './storage.js';
+import { getOrGenerateDeck } from './flashcard-deck.js';
 import { refreshFlashcardsPanel } from './flashcards.js';
 
 let templateDebounceTimer: number | null = null;
@@ -190,6 +195,12 @@ const handleFlashcardsToggleChange = (event: Event): void => {
     updateFlashcardsEnabled(isEnabled).catch(() => {});
 };
 
+const handleNewTabFlashcardsToggleChange = (event: Event): void => {
+    const target = event.target as HTMLInputElement | null;
+    const isEnabled = Boolean(target?.checked);
+    updateNewTabFlashcardsEnabled(isEnabled).catch(() => {});
+};
+
 const handleFlashcardsKeySaveClick = (): void => {
     const input = elements.flashcardsKeyInput;
     const rawKey = input ? input.value.trim() : '';
@@ -254,6 +265,12 @@ const loadFlashcardsSettingsFromStorage = async (): Promise<void> => {
         (snapshot[GEMINI_API_KEY_STORAGE_KEY] as string).trim().length > 0;
     syncGeminiApiKeyPresence(hasKey);
     syncFlashcardsToggle(isEnabled);
+};
+
+const loadNewTabFlashcardsFromStorage = async (): Promise<void> => {
+    const snapshot = await getStorageSnapshot();
+    const isEnabled = resolveNewTabFlashcardsEnabledSetting(snapshot[NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY]);
+    syncNewTabFlashcardsToggle(isEnabled);
 };
 
 const updateNotesEnabled = async (isEnabled: boolean): Promise<void> => {
@@ -334,6 +351,23 @@ const updateFlashcardsEnabled = async (isEnabled: boolean): Promise<void> => {
     }
 };
 
+const updateNewTabFlashcardsEnabled = async (isEnabled: boolean): Promise<void> => {
+    const previousValue = state.isNewTabFlashcardsEnabled;
+    syncNewTabFlashcardsToggle(isEnabled);
+
+    try {
+        await persistNewTabFlashcardsEnabled(isEnabled);
+        if (isEnabled) {
+            // Warm the deck cache so the first new tab paints instantly. No-ops when
+            // the cache is already fresh; failures (no key, <6 notes) are swallowed.
+            getOrGenerateDeck().catch(() => {});
+        }
+    } catch {
+        syncNewTabFlashcardsToggle(previousValue);
+        setSettingsMessage('Unable to update new tab flashcard setting.', 'error');
+    }
+};
+
 const saveGeminiApiKey = async (apiKey: string): Promise<void> => {
     try {
         await persistGeminiApiKey(apiKey);
@@ -341,6 +375,10 @@ const saveGeminiApiKey = async (apiKey: string): Promise<void> => {
         setEnteringGeminiKey(false);
         setSettingsMessage('Gemini API key saved.', 'success');
         refreshFlashcardsPanel();
+        if (state.isNewTabFlashcardsEnabled) {
+            // Warm the deck cache for the new tab now that a key exists.
+            getOrGenerateDeck().catch(() => {});
+        }
     } catch {
         setSettingsMessage('Unable to save Gemini API key.', 'error');
     }
@@ -626,6 +664,11 @@ const storageChangeHandler = (changes: Record<string, chrome.storage.StorageChan
         refreshFlashcardsPanel();
     }
 
+    if (changes[NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY]) {
+        const nextEnabled = resolveNewTabFlashcardsEnabledSetting(changes[NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY].newValue);
+        syncNewTabFlashcardsToggle(nextEnabled);
+    }
+
     if (changes[GEMINI_API_KEY_STORAGE_KEY]) {
         const newValue = changes[GEMINI_API_KEY_STORAGE_KEY].newValue;
         const hasKey = typeof newValue === 'string' && newValue.trim().length > 0;
@@ -678,6 +721,9 @@ const initialize = (): void => {
             syncFlashcardsToggle(false);
             syncGeminiApiKeyPresence(false);
         });
+    loadNewTabFlashcardsFromStorage().catch(() => {
+        syncNewTabFlashcardsToggle(false);
+    });
 
     if (elements.searchInput) {
         elements.searchInput.addEventListener('input', handleSearchInput);
@@ -729,6 +775,10 @@ const initialize = (): void => {
 
     if (elements.flashcardsToggle) {
         elements.flashcardsToggle.addEventListener('change', handleFlashcardsToggleChange);
+    }
+
+    if (elements.newTabFlashcardsToggle) {
+        elements.newTabFlashcardsToggle.addEventListener('change', handleNewTabFlashcardsToggleChange);
     }
 
     if (elements.flashcardsKeySaveButton) {
