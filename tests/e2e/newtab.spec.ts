@@ -55,7 +55,7 @@ const cachedDeck = [
     }
 ];
 
-test('new tab renders a cached flashcard, reveals the source link, and advances on Next', async ({
+test('new tab renders a cached flashcard, reveals feedback, and advances on Next', async ({
     extensionId,
     page,
     seedExtensionStorage
@@ -87,24 +87,27 @@ test('new tab renders a cached flashcard, reveals the source link, and advances 
 
     const card = page.locator('#newtab-card');
     await expect(card).toBeVisible();
-    await expect(card.locator('.flashcards__option').first()).toBeVisible();
+    await expect(card.locator('.nt__opt').first()).toBeVisible();
 
-    const firstQuestion = await card.locator('.flashcards__question').textContent();
+    const firstQuestion = await card.locator('.nt__question').textContent();
     expect(firstQuestion?.trim()).toBeTruthy();
 
-    await card.locator('.flashcards__option').first().click();
-    await expect(card.locator('.flashcards__source-link')).toBeVisible();
+    await card.locator('.nt__opt').first().click();
+    // Answering reveals the correctness feedback, the originating note, and the source jump.
+    await expect(card.locator('.nt__opt--correct')).toBeVisible();
+    await expect(card.locator('.nt__note')).toBeVisible();
+    await expect(card.locator('.nt__source')).toBeVisible();
 
-    const nextButton = card.getByRole('button', { name: 'Next' });
+    const nextButton = card.getByRole('button', { name: /Next card/ });
     await expect(nextButton).toBeVisible();
     await nextButton.click();
 
-    const secondQuestion = await card.locator('.flashcards__question').textContent();
+    const secondQuestion = await card.locator('.nt__question').textContent();
     expect(secondQuestion?.trim()).toBeTruthy();
     expect(secondQuestion).not.toBe(firstQuestion);
 });
 
-test('new tab page renders nothing when the toggle is off', async ({
+test('new tab page shows an off-state message when the toggle is off', async ({
     extensionId,
     page,
     seedExtensionStorage
@@ -134,6 +137,8 @@ test('new tab page renders nothing when the toggle is off', async ({
 
     await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
 
-    await expect(page.locator('#newtab-card')).toBeHidden();
-    await expect(page.locator('.flashcards__option')).toHaveCount(0);
+    const card = page.locator('#newtab-card');
+    await expect(card).toBeVisible();
+    await expect(card.locator('.nt__status')).toBeVisible();
+    await expect(card.locator('.nt__opt')).toHaveCount(0);
 });

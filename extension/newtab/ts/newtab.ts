@@ -1,5 +1,15 @@
-import { GEMINI_API_KEY_STORAGE_KEY, NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY } from '../../popup/ts/constants.js';
-import { buildTimestampUrl, getOrGenerateDeck, readCachedDeck, shuffle } from '../../popup/ts/flashcard-deck.js';
+import {
+    FLASHCARDS_MIN_NOTES,
+    GEMINI_API_KEY_STORAGE_KEY,
+    NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY
+} from '../../popup/ts/constants.js';
+import {
+    buildTimestampUrl,
+    escapeHtml,
+    getOrGenerateDeck,
+    readCachedDeck,
+    shuffle
+} from '../../popup/ts/flashcard-deck.js';
 import { getStorageSnapshot, resolveNewTabFlashcardsEnabledSetting } from '../../popup/ts/storage.js';
 import { renderSingleCard } from './newtab-card.js';
 
@@ -50,8 +60,7 @@ const pickNext = (): Flashcard | null => {
     return deck[index] ?? null;
 };
 
-const openSource = (videoId: string, timestamp: number): void => {
-    const url = buildTimestampUrl(videoId, timestamp);
+const openUrl = (url: string): void => {
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
         chrome.tabs.create({ url }).catch(() => {
             window.open(url, '_blank', 'noopener');
@@ -61,11 +70,14 @@ const openSource = (videoId: string, timestamp: number): void => {
     window.open(url, '_blank', 'noopener');
 };
 
+const openSource = (videoId: string, timestamp: number): void => {
+    openUrl(buildTimestampUrl(videoId, timestamp));
+};
+
 const showCard = (card: Flashcard): void => {
     if (!cardElement) {
         return;
     }
-    cardElement.classList.remove('newtab__card--preparing');
     renderSingleCard(cardElement, card, {
         onNext: () => {
             const next = pickNext();
@@ -85,12 +97,82 @@ const showFirstCard = (): void => {
     }
 };
 
-const hideCard = (): void => {
-    if (cardElement) {
-        cardElement.hidden = true;
-        cardElement.textContent = '';
-        cardElement.classList.remove('newtab__card--preparing');
+const renderPreparing = (): void => {
+    if (!cardElement) {
+        return;
     }
+    cardElement.hidden = false;
+    cardElement.innerHTML = `
+        <div class="nt__status">
+            <div class="nt__spinner" aria-hidden="true"></div>
+            <p class="nt__status-title">Preparing your flashcards…</p>
+            <p class="nt__status-text">Building a quiz from your latest notes.</p>
+        </div>
+    `;
+};
+
+const renderStatus = (title: string, text: string): void => {
+    if (!cardElement) {
+        return;
+    }
+    cardElement.hidden = false;
+    cardElement.innerHTML = `
+        <div class="nt__status">
+            <p class="nt__status-title">${escapeHtml(title)}</p>
+            <p class="nt__status-text">${escapeHtml(text)}</p>
+        </div>
+    `;
+};
+
+// ===== Clock =====
+const timeElement = document.getElementById('nt-time');
+const ampmElement = document.getElementById('nt-ampm');
+const subtitleElement = document.getElementById('nt-subtitle');
+let lastClockText = '';
+
+const renderClock = (): void => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    let display = hours % 12;
+    if (display === 0) {
+        display = 12;
+    }
+    const timeText = `${display}:${minutes}`;
+    if (timeText === lastClockText) {
+        return;
+    }
+    lastClockText = timeText;
+
+    const greeting = hours < 12 ? 'Good morning' : hours < 18 ? 'Good afternoon' : 'Good evening';
+    const dateText = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+    if (timeElement) {
+        timeElement.textContent = timeText;
+    }
+    if (ampmElement) {
+        ampmElement.textContent = hours < 12 ? 'AM' : 'PM';
+    }
+    if (subtitleElement) {
+        subtitleElement.textContent = `${greeting} · ${dateText}`;
+    }
+};
+
+const startClock = (): void => {
+    renderClock();
+    window.setInterval(renderClock, 1000);
+};
+
+// ===== Notes button =====
+const wireNotesButton = (): void => {
+    const button = document.getElementById('nt-open-notes');
+    if (!button) {
+        return;
+    }
+    const url = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL
+        ? chrome.runtime.getURL('notes/notes.html')
+        : '../notes/notes.html';
+    button.addEventListener('click', () => openUrl(url));
 };
 
 const boot = async (): Promise<void> => {
@@ -100,9 +182,19 @@ const boot = async (): Promise<void> => {
     const hasKey = typeof rawKey === 'string' && rawKey.trim().length > 0;
 
     // The background script only redirects new tabs here when the feature is on and a
-    // deck is cached; this gate just guards direct navigation to the page.
-    if (!enabled || !hasKey) {
-        hideCard();
+    // deck is cached; this gate handles direct navigation to the page.
+    if (!hasKey) {
+        renderStatus(
+            'No flashcards yet',
+            'Add a Gemini API key in the Video Notes popup to turn your notes into a flashcard each time you open a tab.'
+        );
+        return;
+    }
+    if (!enabled) {
+        renderStatus(
+            'Flashcards on new tab are off',
+            'Turn on “Flashcards on new tab” in the Video Notes popup to study a card here.'
+        );
         return;
     }
 
@@ -121,20 +213,33 @@ const boot = async (): Promise<void> => {
         return;
     }
 
-    // Cold cache (e.g. just enabled): generate inline, then render or stay blank.
-    if (cardElement) {
-        cardElement.hidden = false;
-        cardElement.textContent = 'Preparing your flashcards…';
-        cardElement.classList.add('newtab__card--preparing');
-    }
+    // Cold cache (e.g. just enabled): generate inline, then render or explain why not.
+    renderPreparing();
 
     const result = await getOrGenerateDeck();
     if (result.status === 'ok' && result.deck.length > 0) {
         seedDeck(result.deck);
         showFirstCard();
+        return;
+    }
+
+    if (result.status === 'insufficient-notes') {
+        renderStatus(
+            'Not enough notes yet',
+            `Add at least ${FLASHCARDS_MIN_NOTES} notes across your videos and your flashcards will appear here.`
+        );
+    } else if (result.status === 'no-key') {
+        renderStatus(
+            'No flashcards yet',
+            'Add a Gemini API key in the Video Notes popup to turn your notes into flashcards.'
+        );
+    } else if (result.status === 'error') {
+        renderStatus("Couldn't build your flashcards", result.message);
     } else {
-        hideCard();
+        renderStatus('No flashcards yet', 'Keep adding notes to your videos and your flashcards will appear here.');
     }
 };
 
+startClock();
+wireNotesButton();
 boot().catch(() => {});

@@ -6,14 +6,45 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>New Tab — Video Notes</title>
         <link rel="stylesheet" href="../popup/popup.css" />
-        <link rel="stylesheet" href="../notes/notes.css" />
         <link rel="stylesheet" href="newtab.css" />
     </head>
 
-    <body>
-        <main class="newtab">
-            <section id="newtab-card" class="newtab__card" hidden></section>
-        </main>
+    <body class="newtab-body">
+        <div class="nt">
+            <header class="nt__bar">
+                <div class="nt__brand">
+                    <img
+                        class="nt__logo"
+                        src="../icons/icon-128.png"
+                        alt="Video Notes"
+                        width="28"
+                        height="28"
+                        decoding="async"
+                    />
+                    <span class="nt__brand-name">Video Notes</span>
+                </div>
+                <div class="nt__bar-actions">
+                    <button id="nt-open-notes" class="nt__icon-btn" type="button" aria-label="Open notes">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="4" width="13" height="16" rx="2"></rect>
+                            <path d="M19 8v11a2 2 0 0 1-2 2H8"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <main class="nt__main">
+                <section class="nt__clock" aria-label="Clock">
+                    <div class="nt__time-row">
+                        <span id="nt-time" class="nt__time">&nbsp;</span>
+                        <span id="nt-ampm" class="nt__ampm"></span>
+                    </div>
+                    <div id="nt-subtitle" class="nt__subtitle">&nbsp;</div>
+                </section>
+
+                <section id="newtab-card" class="nt__cardwrap" hidden></section>
+            </main>
+        </div>
         <script type="module" src="ts/newtab.js"></script>
     </body>
 
