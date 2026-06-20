@@ -46,7 +46,15 @@ const bundleContentScript = () => {
 
 bundleContentScript();
 
-const staticAssets = ['manifest.json', 'icons', 'popup/popup.html', 'popup/popup.css', 'notes'];
+const staticAssets = [
+  'manifest.json',
+  'icons',
+  'popup/popup.html',
+  'popup/popup.css',
+  'notes',
+  'newtab/newtab.html',
+  'newtab/newtab.css'
+];
 
 for (const asset of staticAssets) {
   const source = path.join(extensionRoot, asset);

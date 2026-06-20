@@ -6,6 +6,7 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 - Inline note editor above the title; `Alt/Option + N` opens it and pauses playback; save/delete/cancel flows resume playback.
 - Timeline track beneath the header with hover previews and click-to-seek/edit.
 - Popup dashboard lists every video, offers instant search across titles and note text, and opens tabs at saved timestamps.
+- Optional flashcards on the new tab: when enabled, a background listener redirects freshly opened tabs to a one-card flashcard page (independent settings toggle; needs the `tabs` permission, a Gemini key, and 6+ notes). If the key is missing, the new-tab page shows inline Gemini-key onboarding; when off, your browser's native new tab is left untouched. The deck cache is warmed on enable / key-save and refreshed stale-while-revalidate.
 - Light/dark adapts to YouTube theme signals; storage is local via `chrome.storage.local` (`videoNotes:*` namespaces).
 
 ## Project Structure
@@ -18,7 +19,11 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 │   ├── popup.html
 │   ├── popup.css
 │   └── ts/                # Popup TS modules (entry: popup.ts)
-├── tools/build.mjs        # Cleans dist, compiles TS, copies manifest/icons/popup assets
+├── newtab/                # New-tab page: clock + one flashcard
+│   ├── newtab.html
+│   ├── newtab.css
+│   └── ts/                # New-tab TS modules (entry: newtab.ts)
+├── tools/build.mjs        # Cleans dist, compiles TS, copies manifest/icons/popup/newtab assets
 ├── types/                 # Shared types
 ├── icons/                 # Extension icons
 └── dist/                  # Build output (generated, do not edit)
@@ -28,8 +33,12 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 - `npm install`
 - `npm run dev`: watch builds into `extension/dist/` (includes content script bundling).
 - `npm run build`: clean dist, compile TS, and copy manifest/icons/popup assets to `extension/dist/`.
-- `npm run typecheck`: strict TS validation.
+- `npm run typecheck:extension`: strict extension TS validation.
+- `npm run typecheck`: strict extension + Worker TS validation.
 - `npm run lint`: ESLint over `extension/**/*.{ts,js,mjs}`.
+- `npm run test:e2e`: build and run Playwright extension smoke-regression tests.
+- `npm run verify`: lint, typecheck, build, and run Playwright tests.
+- `npm run test:ci`: alias for `npm run verify`.
 - Optional: `npx web-ext run --source-dir extension/dist --target chromium|firefox-desktop` to smoke-test; `npx web-ext lint --source-dir extension/dist` before packaging.
 - Formatting (when needed): `npx prettier@latest --write extension/scripts/**/*.ts extension/popup/**/*.ts extension/background.ts`.
 

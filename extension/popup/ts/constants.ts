@@ -6,6 +6,7 @@ const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
 const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
 const FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:flashcardsEnabled';
+const NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:newTabFlashcardsEnabled';
 const GEMINI_API_KEY_STORAGE_KEY = 'videoNotes:geminiApiKey';
 const FLASHCARDS_CACHE_STORAGE_KEY = 'videoNotes:flashcardsCache';
 const FLASHCARDS_DECK_SIZE = 12;
@@ -32,6 +33,7 @@ export {
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
     METADATA_STORAGE_KEY,
+    NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
     SETTINGS_MESSAGE_STATES,
     VIEW_CONTEXT_PAGE,
