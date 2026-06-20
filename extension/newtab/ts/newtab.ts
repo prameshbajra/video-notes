@@ -10,7 +10,11 @@ import {
     readCachedDeck,
     shuffle
 } from '../../popup/ts/flashcard-deck.js';
-import { getStorageSnapshot, resolveNewTabFlashcardsEnabledSetting } from '../../popup/ts/storage.js';
+import {
+    getStorageSnapshot,
+    persistGeminiApiKey,
+    resolveNewTabFlashcardsEnabledSetting
+} from '../../popup/ts/storage.js';
 import { renderSingleCard } from './newtab-card.js';
 
 const cardElement = document.getElementById('newtab-card');
@@ -124,6 +128,89 @@ const renderStatus = (title: string, text: string): void => {
     `;
 };
 
+const renderGeminiKeyOnboarding = (errorMessage: string | null = null): void => {
+    if (!cardElement) {
+        return;
+    }
+
+    cardElement.hidden = false;
+    cardElement.innerHTML = `
+        <form class="nt__status nt__key-form" id="nt-key-form">
+            <p class="nt__status-title">Add your Gemini API key</p>
+            <p class="nt__status-text">
+                Video Notes uses this key to generate multiple-choice flashcards from your saved notes.
+            </p>
+            <label for="nt-key-input" class="nt__key-label">Gemini API key</label>
+            <input
+                id="nt-key-input"
+                class="nt__key-input"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Paste your key here"
+            />
+            <p class="nt__key-hint">
+                Get a free key at
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.
+                It is stored locally on this device only.
+            </p>
+            ${errorMessage ? `<p class="nt__key-error">${escapeHtml(errorMessage)}</p>` : ''}
+            <button type="submit" class="nt__primary">Save key</button>
+        </form>
+    `;
+
+    const form = cardElement.querySelector<HTMLFormElement>('#nt-key-form');
+    const input = cardElement.querySelector<HTMLInputElement>('#nt-key-input');
+    const button = cardElement.querySelector<HTMLButtonElement>('.nt__primary');
+
+    form?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const apiKey = input ? input.value.trim() : '';
+        if (!apiKey) {
+            renderGeminiKeyOnboarding('Please paste your Gemini API key.');
+            return;
+        }
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Saving…';
+        }
+
+        persistGeminiApiKey(apiKey)
+            .then(() => {
+                renderPreparing();
+                return boot();
+            })
+            .catch(() => {
+                renderGeminiKeyOnboarding('Unable to save the key. Please try again.');
+            });
+    });
+
+    input?.focus();
+};
+
+const renderMissingKeyIntro = (): void => {
+    if (!cardElement) {
+        return;
+    }
+
+    cardElement.hidden = false;
+    cardElement.innerHTML = `
+        <div class="nt__status">
+            <p class="nt__status-title">No flashcards yet</p>
+            <p class="nt__status-text">
+                Add a free Gemini API key so Video Notes can generate flashcards from your saved YouTube notes.
+            </p>
+            <button type="button" class="nt__primary nt__status-action" data-action="add-gemini-key">
+                Add free Gemini key to generate flashcards
+            </button>
+        </div>
+    `;
+
+    const button = cardElement.querySelector<HTMLButtonElement>('[data-action="add-gemini-key"]');
+    button?.addEventListener('click', () => renderGeminiKeyOnboarding());
+};
+
 // ===== Clock =====
 const timeElement = document.getElementById('nt-time');
 const ampmElement = document.getElementById('nt-ampm');
@@ -181,20 +268,17 @@ const boot = async (): Promise<void> => {
     const rawKey = snapshot[GEMINI_API_KEY_STORAGE_KEY];
     const hasKey = typeof rawKey === 'string' && rawKey.trim().length > 0;
 
-    // The background script only redirects new tabs here when the feature is on and a
-    // deck is cached; this gate handles direct navigation to the page.
-    if (!hasKey) {
-        renderStatus(
-            'No flashcards yet',
-            'Add a Gemini API key in the Video Notes popup to turn your notes into a flashcard each time you open a tab.'
-        );
-        return;
-    }
+    // The background script redirects here only when the feature is on; this gate
+    // still handles direct navigation to the page.
     if (!enabled) {
         renderStatus(
             'Flashcards on new tab are off',
             'Turn on “Flashcards on new tab” in the Video Notes popup to study a card here.'
         );
+        return;
+    }
+    if (!hasKey) {
+        renderMissingKeyIntro();
         return;
     }
 
@@ -229,10 +313,7 @@ const boot = async (): Promise<void> => {
             `Add at least ${FLASHCARDS_MIN_NOTES} notes across your videos and your flashcards will appear here.`
         );
     } else if (result.status === 'no-key') {
-        renderStatus(
-            'No flashcards yet',
-            'Add a Gemini API key in the Video Notes popup to turn your notes into flashcards.'
-        );
+        renderMissingKeyIntro();
     } else if (result.status === 'error') {
         renderStatus("Couldn't build your flashcards", result.message);
     } else {

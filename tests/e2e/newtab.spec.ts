@@ -107,6 +107,73 @@ test('new tab renders a cached flashcard, reveals feedback, and advances on Next
     expect(secondQuestion).not.toBe(firstQuestion);
 });
 
+test('new tab onboards a Gemini key inline when the feature is enabled', async ({
+    extensionId,
+    getExtensionStorage,
+    page,
+    seedExtensionStorage
+}) => {
+    await seedExtensionStorage({
+        [NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY]: true
+    });
+
+    await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
+
+    await expect(page.getByText('No flashcards yet')).toBeVisible();
+    await expect(page.getByText(/Add a free Gemini API key/i)).toBeVisible();
+    await expect(page.getByLabel('Gemini API key')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Add free Gemini key to generate flashcards' }).click();
+    await expect(page.getByText('Add your Gemini API key')).toBeVisible();
+    await page.getByLabel('Gemini API key').fill('inline-newtab-key');
+    await page.getByRole('button', { name: 'Save key' }).click();
+
+    await expect(page.getByText('Not enough notes yet')).toBeVisible();
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage(GEMINI_API_KEY_STORAGE_KEY);
+        return storage[GEMINI_API_KEY_STORAGE_KEY];
+    }).toBe('inline-newtab-key');
+});
+
+test('new browser tabs open the inline Gemini onboarding when enabled without a key', async ({
+    context,
+    extensionId,
+    seedExtensionStorage,
+    serviceWorker
+}) => {
+    await seedExtensionStorage({
+        [NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY]: true
+    });
+
+    const newPagePromise = context.waitForEvent('page');
+    await serviceWorker.evaluate(async () => {
+        const chromeApi = (globalThis as unknown as {
+            chrome: {
+                runtime: { lastError?: { message?: string } };
+                tabs: { create: (properties: Record<string, unknown>, callback: () => void) => void };
+            };
+        }).chrome;
+
+        await new Promise<void>((resolve, reject) => {
+            chromeApi.tabs.create({}, () => {
+                const error = chromeApi.runtime.lastError;
+                if (error) {
+                    reject(new Error(error.message || 'Unable to create tab'));
+                    return;
+                }
+                resolve();
+            });
+        });
+    });
+
+    const newPage = await newPagePromise;
+    await expect(newPage).toHaveURL(`chrome-extension://${extensionId}/newtab/newtab.html`);
+    await expect(newPage.getByText('No flashcards yet')).toBeVisible();
+    await expect(newPage.getByRole('button', { name: 'Add free Gemini key to generate flashcards' })).toBeVisible();
+    await expect(newPage.getByLabel('Gemini API key')).toHaveCount(0);
+    await newPage.close();
+});
+
 test('new tab page shows an off-state message when the toggle is off', async ({
     extensionId,
     page,

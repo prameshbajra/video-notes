@@ -105,12 +105,13 @@ const syncFlashcardsSettingsUi = (): void => {
         return;
     }
 
-    const showSection = state.isFlashcardsEnabled || state.isEnteringGeminiKey;
+    const needsGeminiKey = state.isFlashcardsEnabled || state.isNewTabFlashcardsEnabled;
+    const showSection = needsGeminiKey || state.isEnteringGeminiKey;
     section.hidden = !showSection;
 
-    const showPrompt = state.isEnteringGeminiKey || (state.isFlashcardsEnabled && !state.hasGeminiApiKey);
+    const showPrompt = state.isEnteringGeminiKey || (needsGeminiKey && !state.hasGeminiApiKey);
     prompt.hidden = !showPrompt;
-    status.hidden = !(state.isFlashcardsEnabled && state.hasGeminiApiKey && !state.isEnteringGeminiKey);
+    status.hidden = !(needsGeminiKey && state.hasGeminiApiKey && !state.isEnteringGeminiKey);
 
     if (!showPrompt && elements.flashcardsKeyInput) {
         elements.flashcardsKeyInput.value = '';
@@ -119,7 +120,7 @@ const syncFlashcardsSettingsUi = (): void => {
 
 const syncFlashcardsToggle = (isEnabled: boolean): void => {
     state.isFlashcardsEnabled = isEnabled;
-    if (!isEnabled) {
+    if (!isEnabled && !state.isNewTabFlashcardsEnabled) {
         state.isEnteringGeminiKey = false;
     }
     syncFlashcardsSettingsUi();
@@ -127,9 +128,13 @@ const syncFlashcardsToggle = (isEnabled: boolean): void => {
 
 const syncNewTabFlashcardsToggle = (isEnabled: boolean): void => {
     state.isNewTabFlashcardsEnabled = isEnabled;
+    if (!isEnabled && !state.isFlashcardsEnabled) {
+        state.isEnteringGeminiKey = false;
+    }
     if (elements.newTabFlashcardsToggle) {
         elements.newTabFlashcardsToggle.checked = isEnabled;
     }
+    syncFlashcardsSettingsUi();
 };
 
 const syncGeminiApiKeyPresence = (hasKey: boolean): void => {

@@ -215,8 +215,17 @@ const handleFlashcardsKeySaveClick = (): void => {
 
 const handleFlashcardsKeyCancelClick = (): void => {
     if (!state.hasGeminiApiKey) {
-        updateFlashcardsEnabled(false).catch(() => {});
-        return;
+        const updates: Promise<void>[] = [];
+        if (state.isFlashcardsEnabled) {
+            updates.push(updateFlashcardsEnabled(false));
+        }
+        if (state.isNewTabFlashcardsEnabled) {
+            updates.push(updateNewTabFlashcardsEnabled(false));
+        }
+        if (updates.length > 0) {
+            Promise.all(updates).catch(() => {});
+            return;
+        }
     }
     setEnteringGeminiKey(false);
 };
@@ -358,8 +367,12 @@ const updateNewTabFlashcardsEnabled = async (isEnabled: boolean): Promise<void> 
     try {
         await persistNewTabFlashcardsEnabled(isEnabled);
         if (isEnabled) {
+            if (!state.hasGeminiApiKey) {
+                setEnteringGeminiKey(true);
+                return;
+            }
             // Warm the deck cache so the first new tab paints instantly. No-ops when
-            // the cache is already fresh; failures (no key, <6 notes) are swallowed.
+            // the cache is already fresh; failures (<6 notes, API errors) are swallowed.
             getOrGenerateDeck().catch(() => {});
         }
     } catch {

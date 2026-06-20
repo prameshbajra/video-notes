@@ -6,7 +6,7 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 - Inline note editor above the title; `Alt/Option + N` opens it and pauses playback; save/delete/cancel flows resume playback.
 - Timeline track beneath the header with hover previews and click-to-seek/edit.
 - Popup dashboard lists every video, offers instant search across titles and note text, and opens tabs at saved timestamps.
-- Optional flashcards on the new tab: when enabled, a background listener redirects freshly opened tabs to a one-card flashcard page (independent settings toggle; needs the `tabs` permission, a Gemini key, and 6+ notes). When off — or before a deck has been generated — your browser's native new tab is left untouched. The deck cache is warmed on enable / key-save and refreshed stale-while-revalidate, and a tab is only taken over once a deck exists.
+- Optional flashcards on the new tab: when enabled, a background listener redirects freshly opened tabs to a one-card flashcard page (independent settings toggle; needs the `tabs` permission, a Gemini key, and 6+ notes). If the key is missing, the new-tab page shows inline Gemini-key onboarding; when off, your browser's native new tab is left untouched. The deck cache is warmed on enable / key-save and refreshed stale-while-revalidate.
 - Light/dark adapts to YouTube theme signals; storage is local via `chrome.storage.local` (`videoNotes:*` namespaces).
 
 ## Project Structure

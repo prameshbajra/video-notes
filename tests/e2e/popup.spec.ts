@@ -7,6 +7,8 @@ const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
 const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
+const NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:newTabFlashcardsEnabled';
+const GEMINI_API_KEY_STORAGE_KEY = 'videoNotes:geminiApiKey';
 const VIDEO_ID = 'e2e-popup-video';
 
 const createPopupNotesSeed = (title = 'Popup Smoke Video'): Record<string, unknown> => ({
@@ -77,6 +79,56 @@ test('popup lists stored notes, filters them, and persists settings changes', as
     }).toEqual({
         isEnabled: false,
         isZenModeEnabled: true
+    });
+});
+
+test('popup onboards a Gemini key when enabling new-tab flashcards', async ({
+    getExtensionStorage,
+    page,
+    popupUrl,
+    seedExtensionStorage
+}) => {
+    await seedExtensionStorage({});
+
+    await page.goto(popupUrl);
+    await page.getByLabel('Open settings').click();
+
+    await expect(page.locator('#flashcards-key-section')).toBeHidden();
+
+    await page.locator('#newtab-flashcards-toggle').check();
+    await expect(page.locator('#flashcards-key-prompt')).toBeVisible();
+    await expect(page.locator('#flashcards-key-status')).toBeHidden();
+
+    await page.locator('#flashcards-key-cancel').click();
+    await expect(page.locator('#newtab-flashcards-toggle')).not.toBeChecked();
+    await expect(page.locator('#flashcards-key-section')).toBeHidden();
+
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage(NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY);
+        return storage[NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY];
+    }).toBe(false);
+
+    await page.locator('#newtab-flashcards-toggle').check();
+    await page.locator('#flashcards-key-input').fill('test-gemini-key');
+    await page.locator('#flashcards-key-save').click();
+
+    await expect(page.locator('#flashcards-key-status')).toBeVisible();
+    await expect(page.locator('#flashcards-key-prompt')).toBeHidden();
+    await expect(page.locator('#newtab-flashcards-toggle')).toBeChecked();
+    await expect(page.locator('#flashcards-toggle')).not.toBeChecked();
+
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage([
+            NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
+            GEMINI_API_KEY_STORAGE_KEY
+        ]);
+        return {
+            newTabFlashcardsEnabled: storage[NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY],
+            geminiApiKey: storage[GEMINI_API_KEY_STORAGE_KEY]
+        };
+    }).toEqual({
+        newTabFlashcardsEnabled: true,
+        geminiApiKey: 'test-gemini-key'
     });
 });
 
