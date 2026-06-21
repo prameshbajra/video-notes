@@ -1,0 +1,108 @@
+name: Release
+
+# Publishes the extension to the Chrome Web Store and Firefox AMO.
+#
+# Trigger by pushing a version tag that matches the manifest version:
+#   git tag v2.3.0 && git push origin v2.3.0
+# Or run manually from the Actions tab (workflow_dispatch) and pick a target.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   Chrome:  CWS_EXTENSION_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN
+#   Firefox: AMO_JWT_ISSUER, AMO_JWT_SECRET
+# See docs/PUBLISHING.md for how to obtain each one.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which store(s) to publish'
+        type: choice
+        options: [both, chrome, firefox]
+        default: both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify manifest version matches the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST="$(node -p "require('./extension/manifest.json').version")"
+          echo "tag=$TAG  manifest=$MANIFEST"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG does not match manifest version $MANIFEST. Bump the version before tagging."
+            exit 1
+          fi
+      - name: Package zips
+        run: |
+          cd extension/dist
+          zip -r -FS ../../dist-chrome.zip .
+          zip -r -FS ../../dist-fire.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension-zips
+          path: |
+            dist-chrome.zip
+            dist-fire.zip
+          retention-days: 7
+
+  chrome:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || inputs.target == 'both' || inputs.target == 'chrome' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: extension-zips
+      - name: Upload & publish to the Chrome Web Store
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: npx --yes chrome-webstore-upload-cli@3 upload --source dist-chrome.zip --auto-publish
+
+  firefox:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || inputs.target == 'both' || inputs.target == 'firefox' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # `web-ext sign --channel listed` submits a new version to AMO for the
+      # listed (public) add-on. The listing itself must already exist — create
+      # the first version via the AMO website, then CI handles every release
+      # after that. See docs/PUBLISHING.md.
+      - name: Sign & submit to Firefox AMO
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx --yes web-ext@8 sign \
+            --channel listed \
+            --source-dir extension/dist \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET"
