@@ -58,7 +58,7 @@
             <div class="policy-hero-inner">
                 <p class="eyebrow">Privacy policy</p>
                 <h1>Privacy that doesn't read between the lines.</h1>
-                <p class="policy-meta">Effective March 28, 2024 · Last reviewed March 28, 2026</p>
+                <p class="policy-meta">Effective March 28, 2024 · Last reviewed June 21, 2026</p>
             </div>
         </section>
 
@@ -103,7 +103,7 @@
                         <li>Every note associated with that video, including timestamps and text.</li>
                     </ul>
                     <p>
-                        No data is transmitted unless you explicitly click the Share button.
+                        No data is transmitted unless you explicitly click the Share button or enable the optional flashcards feature (see section 5).
                         The extension does not request or infer usernames, email addresses, browsing history, or analytics identifiers.
                     </p>
                 </article>
@@ -127,6 +127,7 @@
                     <ul>
                         <li><strong>storage</strong> — allows the extension to store the notes you create in <code>chrome.storage.local</code>.</li>
                         <li><strong>host_permissions</strong> for <code>share-api.video-notes.workers.dev</code> — allows the extension to send note data to the share API when you explicitly click the Share button. No requests are made to this host unless you initiate a share action.</li>
+                        <li><strong>host_permissions</strong> for <code>generativelanguage.googleapis.com</code> — allows the optional flashcards feature to send your note text to Google's Gemini API to generate quiz questions, using an API key you provide. No requests are made to this host unless you enable flashcards and add your own key.</li>
                         <li><strong>content_scripts</strong> on <code>youtube.com</code> — injects the inline workspace that renders the note editor, timeline, and controls on youtube.com/watch pages.</li>
                     </ul>
                     <p>
@@ -137,7 +138,7 @@
                 <article class="policy-card">
                     <h2>5. Network access, disclosures, and third parties</h2>
                     <p>
-                        With the exception of the Share feature described below, the extension does not initiate outbound network requests.
+                        With the exception of the optional Share and flashcards features described below, the extension does not initiate outbound network requests.
                         No analytics SDKs, advertising services, or third-party processors are bundled with the codebase.
                         Video Notes does not sell, trade, or disclose your information to anyone.
                     </p>
@@ -148,12 +149,15 @@
                         The API stores this data to generate a unique, read-only shareable link. No other data (browsing history, cookies, device identifiers) is included in the request.
                         This feature is entirely opt-in — no network requests are made unless you explicitly initiate a share action.
                     </p>
+                    <p>
+                        <strong>Flashcards feature.</strong> Flashcards are off by default. If you enable them and provide your own Google Gemini API key, the extension sends your note text and the associated video titles directly from your browser to Google's Gemini API (<code>generativelanguage.googleapis.com</code>) to generate quiz questions. Your API key is stored only in <code>chrome.storage.local</code> on your device and is never sent to the developer. This data is processed by Google under Google's own terms and privacy policy; no note data is sent to the developer or any other third party. No requests are made unless you have enabled flashcards and added a key.
+                    </p>
                 </article>
 
                 <article class="policy-card">
                     <h2>6. Security measures</h2>
                     <p>
-                        Outside the optional Share feature, data never leaves your browser. Security focuses on minimizing attack surface:
+                        Outside the optional Share and flashcards features, data never leaves your browser. Security focuses on minimizing attack surface:
                     </p>
                     <ul>
                         <li>The extension injects lightweight, auditable scripts based on open-source code published at <a href="https://github.com/prameshbajra/video-notes" rel="noreferrer noopener">github.com/prameshbajra/video-notes</a>.</li>
