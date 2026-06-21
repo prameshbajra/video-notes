@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Video Notes for YouTube</title>
     <meta name="description"
-        content="Video Notes is a Chrome extension that anchors timestamped notes to the exact second of any YouTube video. Capture in flow, search across every video, share with one click." />
+        content="Video Notes is a Chrome extension that anchors timestamped notes to the exact second of any YouTube video. Capture in flow, search across every video, share with one click, and turn your notes into flashcards on every new tab." />
     <meta name="keywords"
         content="YouTube notes, timestamped notes, Chrome extension, productivity, inline workspace, flash cards" />
     <meta name="author" content="Pramesh Bajracharya" />
@@ -44,7 +44,7 @@
         "name": "Video Notes for YouTube",
         "operatingSystem": "Chrome, Brave, Edge, Firefox",
         "applicationCategory": "ProductivityApplication",
-        "description": "Video Notes anchors timestamped notes to YouTube videos with a one-key shortcut, a searchable popup index, shareable read-only links, and flash-card review.",
+        "description": "Video Notes anchors timestamped notes to YouTube videos with a one-key shortcut, a searchable popup index, shareable read-only links, and Gemini-powered flashcards on every new tab.",
         "url": "https://prameshbajra.github.io/video-notes/",
         "creator": { "@type": "Person", "name": "Pramesh Bajracharya" },
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -63,6 +63,7 @@
                 <a href="#capture">Capture</a>
                 <a href="#timeline">Timeline</a>
                 <a href="#popup">Popup</a>
+                <a href="#flashcards">Flashcards</a>
                 <a href="#privacy">Privacy</a>
                 <a href="#share">Share</a>
             </nav>
@@ -298,17 +299,93 @@
             </div>
         </section>
 
+        <!-- FLASHCARDS / NEW TAB -->
+        <section id="flashcards" class="section--light">
+            <div class="section-inner">
+                <div class="section-head">
+                    <p class="eyebrow">Review</p>
+                    <h2 class="display h2">Open a new tab.<br /><em class="accent">Get quizzed.</em></h2>
+                    <p class="lead">Switch on new-tab flashcards and every blank tab becomes one multiple-choice question — written by Gemini from the notes you actually took. Answer it, read the note behind it, and jump straight to that second of the video. Bring your own free key; it stays on your device.</p>
+                </div>
+                <div class="ntab-frame" aria-hidden="true">
+                    <div class="ntab-chrome">
+                        <div class="yt-dots"><span></span><span></span><span></span></div>
+                        <div class="ntab-omni"><span>🔍</span> Search or type a URL</div>
+                    </div>
+                    <div class="ntab-bar">
+                        <div class="ntab-brand">
+                            <img src="extension/icons/icon-128.png" alt="" width="26" height="26" />
+                            <span>Video Notes</span>
+                        </div>
+                        <button class="ntab-iconbtn" type="button" tabindex="-1">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="13" height="16" rx="2"></rect>
+                                <path d="M19 8v11a2 2 0 0 1-2 2H8"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="ntab-clock">
+                        <div class="ntab-time-row">
+                            <span class="ntab-time">9:41</span>
+                            <span class="ntab-ampm">AM</span>
+                        </div>
+                        <div class="ntab-sub">Good morning · Sunday, June 21</div>
+                    </div>
+                    <div class="ntab-cardwrap">
+                        <div class="ntab-card">
+                            <div class="ntab-pill">
+                                <span class="dot"></span>
+                                <span class="txt">Designing a sample-based synth</span>
+                            </div>
+                            <p class="ntab-q">Why route the bass through a sidechain bus?</p>
+                            <div class="ntab-opts">
+                                <div class="ntab-opt ntab-opt--correct">
+                                    <span class="otext">Duck it under the kick for a cleaner low end</span>
+                                    <svg class="check" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                                </div>
+                                <div class="ntab-opt ntab-opt--wrong">
+                                    <span class="otext">Widen the stereo image of the sub</span>
+                                    <svg class="cross" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                                </div>
+                                <div class="ntab-opt ntab-opt--dim">
+                                    <span class="otext">Boost the overall track loudness</span>
+                                </div>
+                                <div class="ntab-opt ntab-opt--dim">
+                                    <span class="otext">Filter out low-frequency hum</span>
+                                </div>
+                            </div>
+                            <div class="ntab-note">
+                                <div class="label">FROM YOUR NOTE</div>
+                                <p>Sidechain bus routing — try in Live tonight.</p>
+                            </div>
+                            <div class="ntab-source">
+                                <svg class="picon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                                <span class="slabel">Jump to source</span>
+                                <span class="stime">00:34</span>
+                            </div>
+                        </div>
+                        <div class="ntab-foot">
+                            <button class="ntab-next" type="button" tabindex="-1">Next card →</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="ntab-cta">
+                    <a class="link-accent" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener">Grab a free Gemini key &nbsp;›</a>
+                </div>
+            </div>
+        </section>
+
         <!-- PRIVACY -->
         <section id="privacy" class="section--soft">
             <div class="section-inner">
                 <div class="section-head">
                     <p class="eyebrow">Privacy</p>
                     <h2 class="display h2">Yours by <em class="accent">default</em>.<br />Yours by <em class="accent">design</em>.</h2>
-                    <p class="lead">Every note lives in <span class="privacy-inline-code">chrome.storage.local</span> on your machine. No accounts. No sync. No servers. No telemetry.</p>
+                    <p class="lead">Every note lives in <span class="privacy-inline-code">chrome.storage.local</span> on your machine. No accounts. No sync. No telemetry.</p>
                 </div>
                 <div class="privacy-stats">
                     <div class="stat-card"><div class="n">100%</div><div class="l">Offline by default</div></div>
-                    <div class="stat-card"><div class="n">0</div><div class="l">Network permissions</div></div>
+                    <div class="stat-card"><div class="n">0</div><div class="l">Trackers</div></div>
                     <div class="stat-card"><div class="n">142 KB</div><div class="l">Bundle size</div></div>
                     <div class="stat-card"><div class="n">MIT</div><div class="l">Open source</div></div>
                 </div>
@@ -433,9 +510,9 @@
                             </div>
                         </div>
                         <div>
-                            <div class="detail-eyebrow">Flash cards</div>
-                            <h3>Review what stuck.</h3>
-                            <p>Bring your own Gemini API key (stored locally) and Video Notes turns every note you've ever taken into a flip-card deck for self-quizzing.</p>
+                            <div class="detail-eyebrow">Quiz mode</div>
+                            <h3>Quiz the full deck.</h3>
+                            <p>Prefer a focused session? Open the popup and play the whole deck end to end — the same Gemini-made questions, scored as you go.</p>
                         </div>
                     </article>
 
