@@ -2,8 +2,9 @@
 
 How to release the extension to the **Chrome Web Store** and **Firefox AMO**.
 
-- Chrome is an **update** to an existing listing (`phgnkidiglnijkpmmdjcgdkekfoelcom`).
-- Firefox is (as of v2.3.0) a **new** listing — the first version must be created by hand; CI handles every release after that.
+- Both stores are **updates** to existing listings:
+  - Chrome: `phgnkidiglnijkpmmdjcgdkekfoelcom`
+  - Firefox: [`video-notes-for-youtube`](https://addons.mozilla.org/firefox/addon/video-notes-for-youtube/) (gecko ID `video-notes@prameshbajra`)
 - Privacy policy URL (required by both): https://prameshbajra.github.io/video-notes/privacy.html
 
 ---
@@ -57,12 +58,12 @@ CI uploads the package, but the **store listing** (description, screenshots, dat
 3. **Privacy practices** tab — keep this current: declare that note text is sent to Google's Gemini API **only when the user enables flashcards and provides their own key**, justify each permission (see below), confirm no remote code, and set the privacy policy URL.
 4. **Submit for review.** Adding the Gemini data flow / host permission can lengthen review.
 
-### Firefox AMO (new listing)
+### Firefox AMO (update)
+The listing already exists, so CI's `web-ext sign --channel listed` ships each new version automatically. To upload by hand instead:
 1. `npx web-ext lint --source-dir extension/dist` (CI's linter; fix anything new). Current expected warnings are listed below.
 2. `npm run zip-fire` → `dist-fire.zip`.
-3. [Developer Hub](https://addons.mozilla.org/developers/) → **Submit a New Add-on** → upload → choose **On this site** (listed).
+3. [Developer Hub](https://addons.mozilla.org/developers/addon/video-notes-for-youtube/edit) → **Upload New Version** → upload the zip → submit.
 4. If asked for **source code**: the build bundles TypeScript via `node extension/tools/build.mjs`, so provide the repo plus build steps (`npm ci && npm run build`, output in `extension/dist`).
-5. Fill the listing (summary, description, screenshots, categories), set the privacy policy URL, submit. Once the listed add-on exists, future versions go out automatically via `web-ext sign --channel listed` in CI.
 
 ---
 

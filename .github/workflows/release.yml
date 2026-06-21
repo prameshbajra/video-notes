@@ -92,10 +92,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      # `web-ext sign --channel listed` submits a new version to AMO for the
-      # listed (public) add-on. The listing itself must already exist — create
-      # the first version via the AMO website, then CI handles every release
-      # after that. See docs/PUBLISHING.md.
+      # `web-ext sign --channel listed` submits a new version of the existing
+      # listed add-on (video-notes-for-youtube) to AMO, matched by its gecko
+      # ID (video-notes@prameshbajra). See docs/PUBLISHING.md.
       - name: Sign & submit to Firefox AMO
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
