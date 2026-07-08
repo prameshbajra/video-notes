@@ -1,5 +1,5 @@
 import { copyToClipboard } from './clipboard.js';
-import { HOLD_DURATION_MS } from './constants.js';
+import { HOLD_DURATION_MS, NOTE_RENDER_BATCH_SIZE, VIDEO_RENDER_BATCH_SIZE } from './constants.js';
 import { elements, showToast, state } from './state.js';
 
 interface RenderHandlers {
@@ -8,6 +8,8 @@ interface RenderHandlers {
     onExportVideo: (video: VideoListItem) => void;
     onShareVideo: (video: VideoListItem) => void;
     onOpenNote: (videoId: string, timestampSeconds: number | string) => void;
+    onShowMoreNotes: (videoId: string) => void;
+    onShowMoreVideos: () => void;
     onToggleVideo: (videoId: string) => void;
 }
 
@@ -218,10 +220,26 @@ const createDeleteButtonWithHold = (deleteAction: () => void, ariaLabel: string)
     return button;
 };
 
+const createPaginationButton = (label: string, ariaLabel: string, onClick: () => void): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pagination-button';
+    button.setAttribute('aria-label', ariaLabel);
+    button.textContent = label;
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+    });
+    return button;
+};
+
 const render = (handlers: RenderHandlers): void => {
     const searchTrimmed = state.searchTerm.trim();
     const isSearchActive = searchTrimmed.length > 0;
     const renderable = computeRenderableVideos();
+    const visibleRenderable = renderable.slice(0, state.visibleVideoLimit);
+    const hiddenVideoCount = Math.max(0, renderable.length - visibleRenderable.length);
 
     const { videoList, emptyState } = elements;
     if (!videoList || !emptyState) {
@@ -244,7 +262,7 @@ const render = (handlers: RenderHandlers): void => {
 
     emptyState.hidden = true;
 
-    renderable.forEach(({ video, displayNotes, forceExpanded }) => {
+    visibleRenderable.forEach(({ video, displayNotes, forceExpanded }) => {
         const listItem = document.createElement('li');
         listItem.className = 'video-item';
 
@@ -323,40 +341,7 @@ const render = (handlers: RenderHandlers): void => {
         buttons.push(videoDeleteButton);
         headerRow.append(...buttons);
 
-        const notesList = document.createElement('ul');
-        notesList.className = 'notes-list';
-
-        displayNotes.forEach((note) => {
-            const noteItem = document.createElement('li');
-            noteItem.className = 'note-item';
-
-            const noteButton = document.createElement('button');
-            noteButton.type = 'button';
-            noteButton.className = 'note-button';
-            noteButton.dataset.videoId = video.videoId;
-            noteButton.dataset.timestamp = note.timestamp.toString();
-            noteButton.dataset.noteKey = note.dedupKey;
-
-            noteButton.addEventListener('click', () => handlers.onOpenNote(video.videoId, note.timestamp));
-
-            const timestampSpan = document.createElement('span');
-            timestampSpan.className = 'note-button__timestamp';
-            timestampSpan.textContent = note.formattedTimestamp;
-
-            const textSpan = document.createElement('span');
-            textSpan.className = 'note-button__text';
-            textSpan.textContent = note.text;
-
-            const noteDeleteButton = createDeleteButtonWithHold(
-                () => handlers.onDeleteNote(video.videoId, note.dedupKey),
-                `Delete note at ${note.formattedTimestamp}`
-            );
-            noteDeleteButton.classList.add('note-delete-button');
-
-            noteButton.append(timestampSpan, textSpan);
-            noteItem.append(noteButton, noteDeleteButton);
-            notesList.appendChild(noteItem);
-        });
+        const listChildren: HTMLElement[] = [headerRow];
 
         const sharedUrl = state.sharedUrls.get(video.videoId);
         if (sharedUrl) {
@@ -381,12 +366,83 @@ const render = (handlers: RenderHandlers): void => {
             });
 
             shareLinkBar.append(urlSpan, copyBtn);
-            listItem.append(headerRow, shareLinkBar, notesList);
-        } else {
-            listItem.append(headerRow, notesList);
+            listChildren.push(shareLinkBar);
         }
+
+        if (isExpanded) {
+            const notesList = document.createElement('ul');
+            notesList.className = 'notes-list';
+
+            const visibleNotesLimit = state.visibleNotesByVideo.get(video.videoId) || NOTE_RENDER_BATCH_SIZE;
+            const visibleNotes = displayNotes.slice(0, visibleNotesLimit);
+            const hiddenNoteCount = Math.max(0, displayNotes.length - visibleNotes.length);
+
+            visibleNotes.forEach((note) => {
+                const noteItem = document.createElement('li');
+                noteItem.className = 'note-item';
+
+                const noteButton = document.createElement('button');
+                noteButton.type = 'button';
+                noteButton.className = 'note-button';
+                noteButton.dataset.videoId = video.videoId;
+                noteButton.dataset.timestamp = note.timestamp.toString();
+                noteButton.dataset.noteKey = note.dedupKey;
+
+                noteButton.addEventListener('click', () => handlers.onOpenNote(video.videoId, note.timestamp));
+
+                const timestampSpan = document.createElement('span');
+                timestampSpan.className = 'note-button__timestamp';
+                timestampSpan.textContent = note.formattedTimestamp;
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'note-button__text';
+                textSpan.textContent = note.text;
+
+                const noteDeleteButton = createDeleteButtonWithHold(
+                    () => handlers.onDeleteNote(video.videoId, note.dedupKey),
+                    `Delete note at ${note.formattedTimestamp}`
+                );
+                noteDeleteButton.classList.add('note-delete-button');
+
+                noteButton.append(timestampSpan, textSpan);
+                noteItem.append(noteButton, noteDeleteButton);
+                notesList.appendChild(noteItem);
+            });
+
+            if (hiddenNoteCount > 0) {
+                const moreNotesItem = document.createElement('li');
+                moreNotesItem.className = 'notes-pagination-item';
+                const nextNoteCount = Math.min(NOTE_RENDER_BATCH_SIZE, hiddenNoteCount);
+                const moreNotesButton = createPaginationButton(
+                    `Show ${nextNoteCount} more ${nextNoteCount === 1 ? 'note' : 'notes'}`,
+                    `Show more notes for "${video.title}"`,
+                    () => handlers.onShowMoreNotes(video.videoId)
+                );
+                moreNotesButton.classList.add('pagination-button--notes');
+                moreNotesItem.appendChild(moreNotesButton);
+                notesList.appendChild(moreNotesItem);
+            }
+
+            listChildren.push(notesList);
+        }
+
+        listItem.append(...listChildren);
         videoList.appendChild(listItem);
     });
+
+    if (hiddenVideoCount > 0) {
+        const paginationItem = document.createElement('li');
+        paginationItem.className = 'video-pagination-item';
+        const nextVideoCount = Math.min(VIDEO_RENDER_BATCH_SIZE, hiddenVideoCount);
+        const moreVideosButton = createPaginationButton(
+            `Show ${nextVideoCount} more ${nextVideoCount === 1 ? 'video' : 'videos'}`,
+            'Show more videos',
+            handlers.onShowMoreVideos
+        );
+        moreVideosButton.classList.add('pagination-button--videos');
+        paginationItem.appendChild(moreVideosButton);
+        videoList.appendChild(paginationItem);
+    }
 };
 
 export type { RenderHandlers };

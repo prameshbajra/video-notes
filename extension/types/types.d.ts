@@ -167,6 +167,8 @@ interface PopupState {
     videos: VideoListItem[];
     expandedVideos: Set<string>;
     searchTerm: string;
+    visibleVideoLimit: number;
+    visibleNotesByVideo: Map<string, number>;
     activeView: ViewName;
     isNotesEnabled: boolean;
     isZenModeEnabled: boolean;

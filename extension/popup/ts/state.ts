@@ -1,5 +1,6 @@
 import {
     DEFAULT_MD_TEMPLATE,
+    VIDEO_RENDER_BATCH_SIZE,
     SETTINGS_MESSAGE_STATES,
     VIEW_CONTEXT_PAGE,
     VIEW_NOTES,
@@ -14,6 +15,8 @@ const state: PopupState = {
     videos: [],
     expandedVideos: new Set<string>(),
     searchTerm: '',
+    visibleVideoLimit: VIDEO_RENDER_BATCH_SIZE,
+    visibleNotesByVideo: new Map<string, number>(),
     activeView: VIEW_NOTES,
     isNotesEnabled: true,
     isZenModeEnabled: false,

@@ -7,8 +7,11 @@ import {
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
     METADATA_STORAGE_KEY,
+    NOTE_RENDER_BATCH_SIZE,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
+    SEARCH_DEBOUNCE_MS,
+    VIDEO_RENDER_BATCH_SIZE,
     VIEW_NOTES,
     VIEW_SETTINGS,
     ZEN_MODE_STORAGE_KEY
@@ -64,6 +67,12 @@ import { getOrGenerateDeck } from './flashcard-deck.js';
 import { refreshFlashcardsPanel } from './flashcards.js';
 
 let templateDebounceTimer: number | null = null;
+let searchDebounceTimer: number | null = null;
+
+const resetPaginationState = (): void => {
+    state.visibleVideoLimit = VIDEO_RENDER_BATCH_SIZE;
+    state.visibleNotesByVideo = new Map<string, number>();
+};
 
 const createBackupPayload = async (): Promise<BackupPayload> => {
     const snapshot = await getStorageSnapshot();
@@ -611,7 +620,32 @@ const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
 
 const handleSearchInput = (event: Event): void => {
     const target = event.target as HTMLInputElement | null;
-    state.searchTerm = target?.value || '';
+    const nextSearchTerm = target?.value || '';
+
+    if (searchDebounceTimer !== null) {
+        clearTimeout(searchDebounceTimer);
+    }
+
+    searchDebounceTimer = window.setTimeout(() => {
+        state.searchTerm = nextSearchTerm;
+        resetPaginationState();
+        render(renderHandlers);
+        searchDebounceTimer = null;
+    }, SEARCH_DEBOUNCE_MS);
+};
+
+const showMoreVideos = (): void => {
+    state.visibleVideoLimit += VIDEO_RENDER_BATCH_SIZE;
+    render(renderHandlers);
+};
+
+const showMoreNotes = (videoId: string): void => {
+    if (!videoId) {
+        return;
+    }
+
+    const currentLimit = state.visibleNotesByVideo.get(videoId) || NOTE_RENDER_BATCH_SIZE;
+    state.visibleNotesByVideo.set(videoId, currentLimit + NOTE_RENDER_BATCH_SIZE);
     render(renderHandlers);
 };
 
@@ -628,6 +662,7 @@ const loadVideos = async (): Promise<void> => {
     }
 
     state.videos = videos;
+    resetPaginationState();
     render(renderHandlers);
 };
 
@@ -705,6 +740,12 @@ const renderHandlers: RenderHandlers = {
     },
     onOpenNote: (videoId: string, timestampSeconds: number | string): void => {
         openNote(videoId, timestampSeconds);
+    },
+    onShowMoreNotes: (videoId: string): void => {
+        showMoreNotes(videoId);
+    },
+    onShowMoreVideos: (): void => {
+        showMoreVideos();
     },
     onToggleVideo: (videoId: string): void => {
         toggleVideoExpansion(videoId);
@@ -813,6 +854,10 @@ const initialize = (): void => {
             if (templateDebounceTimer !== null) {
                 clearTimeout(templateDebounceTimer);
                 templateDebounceTimer = null;
+            }
+            if (searchDebounceTimer !== null) {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = null;
             }
         });
     }
