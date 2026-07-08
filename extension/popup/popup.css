@@ -195,6 +195,45 @@ body {
     gap: 8px;
 }
 
+.video-pagination-item,
+.notes-pagination-item {
+    list-style: none;
+}
+
+.video-pagination-item {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 2px;
+}
+
+.notes-pagination-item {
+    display: flex;
+    justify-content: center;
+    padding: 2px 0;
+}
+
+.pagination-button {
+    border: 1px solid var(--divider);
+    border-radius: 999px;
+    background-color: var(--surface);
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 8px 12px;
+    transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.pagination-button:hover,
+.pagination-button:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    background-color: var(--accent-soft);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
 .back-button {
     align-self: flex-start;
     border: none;

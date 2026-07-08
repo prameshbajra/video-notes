@@ -10,6 +10,8 @@ const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
 const NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:newTabFlashcardsEnabled';
 const GEMINI_API_KEY_STORAGE_KEY = 'videoNotes:geminiApiKey';
 const VIDEO_ID = 'e2e-popup-video';
+const LARGE_LIBRARY_VIDEO_COUNT = 80;
+const LARGE_LIBRARY_NOTES_PER_VIDEO = 80;
 
 const createPopupNotesSeed = (title = 'Popup Smoke Video'): Record<string, unknown> => ({
     [NOTES_STORAGE_KEY]: {
@@ -38,6 +40,34 @@ const createPopupNotesSeed = (title = 'Popup Smoke Video'): Record<string, unkno
         }
     }
 });
+
+const createLargeLibrarySeed = (): Record<string, unknown> => {
+    const notes: Record<string, Array<Record<string, unknown>>> = {};
+    const metadata: Record<string, Record<string, unknown>> = {};
+    const now = 1_700_000_000_000;
+
+    Array.from({ length: LARGE_LIBRARY_VIDEO_COUNT }, (_videoValue, videoIndex) => {
+        const videoId = `large-library-video-${videoIndex.toString().padStart(3, '0')}`;
+        notes[videoId] = Array.from({ length: LARGE_LIBRARY_NOTES_PER_VIDEO }, (_noteValue, noteIndex) => ({
+            id: `${videoId}-note-${noteIndex.toString().padStart(3, '0')}`,
+            timestamp: noteIndex * 15,
+            text: `large-search-token note ${noteIndex} for video ${videoIndex}`,
+            createdAt: now + noteIndex,
+            updatedAt: now + noteIndex
+        }));
+        metadata[videoId] = {
+            title: `Large Library Video ${videoIndex.toString().padStart(3, '0')}`,
+            noteCount: LARGE_LIBRARY_NOTES_PER_VIDEO,
+            updatedAt: now - videoIndex
+        };
+    });
+
+    return {
+        [NOTES_STORAGE_KEY]: notes,
+        [METADATA_STORAGE_KEY]: metadata,
+        [DELETE_HOLD_ENABLED_STORAGE_KEY]: false
+    };
+};
 
 test('popup lists stored notes, filters them, and persists settings changes', async ({
     getExtensionStorage,
@@ -80,6 +110,32 @@ test('popup lists stored notes, filters them, and persists settings changes', as
         isEnabled: false,
         isZenModeEnabled: true
     });
+});
+
+test('popup keeps large note libraries paginated instead of rendering every note', async ({
+    page,
+    popupUrl,
+    seedExtensionStorage
+}) => {
+    await seedExtensionStorage(createLargeLibrarySeed());
+
+    await page.goto(popupUrl);
+
+    await expect(page.locator('.video-item')).toHaveCount(50);
+    await expect(page.locator('.note-item')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Show more videos' })).toBeVisible();
+
+    await page.getByRole('button', { name: /Large Library Video 000.*80 notes/ }).click();
+    await expect(page.locator('.note-item')).toHaveCount(50);
+    await expect(page.getByRole('button', { name: 'Show more notes for "Large Library Video 000"' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Show more notes for "Large Library Video 000"' }).click();
+    await expect(page.locator('.note-item')).toHaveCount(80);
+
+    await page.getByPlaceholder('Search videos or notes').fill('large-search-token');
+    await expect(page.locator('.video-item')).toHaveCount(50);
+    await expect(page.locator('.note-item')).toHaveCount(2500);
+    await expect(page.getByRole('button', { name: 'Show more videos' })).toBeVisible();
 });
 
 test('popup onboards a Gemini key when enabling new-tab flashcards', async ({
