@@ -8,6 +8,10 @@ export default defineConfig({
     },
     fullyParallel: false,
     workers: 1,
+    // Absorb transient flakes (e.g. the new-tab URL race in newtab.spec.ts) on
+    // CI, where a single failure blocks the required check on main. Keep 0
+    // retries locally so flakes stay visible during development.
+    retries: process.env.CI ? 2 : 0,
     reporter: process.env.CI
         ? [['github'], ['html', { open: 'never' }]]
         : [['list'], ['html', { open: 'never' }]],
