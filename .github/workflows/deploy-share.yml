@@ -1,0 +1,49 @@
+name: Deploy share stack
+
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: deploy-share-production
+    cancel-in-progress: false
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        env:
+            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            SHARE_API_BASE_URL: https://share-api.video-notes.workers.dev
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install extension dependencies
+              run: npm ci
+
+            - name: Install Worker dependencies
+              run: npm ci --prefix worker
+
+            - name: Verify repository
+              run: npm run verify
+
+            - name: Verify generated Worker bindings
+              run: npm --prefix worker run types:check
+
+            - name: Deploy annotation-capable share viewer first
+              run: ./worker/node_modules/.bin/wrangler pages deploy share --project-name static-video-notes --branch main
+
+            - name: Deploy compatible share API second
+              run: npm --prefix worker run deploy
+
+            - name: Smoke-test the deployed stack
+              run: npm run test:share:remote

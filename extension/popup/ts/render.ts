@@ -396,7 +396,7 @@ const render = (handlers: RenderHandlers): void => {
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'note-button__text';
-                textSpan.textContent = note.text;
+                textSpan.textContent = note.displayText;
 
                 const noteDeleteButton = createDeleteButtonWithHold(
                     () => handlers.onDeleteNote(video.videoId, note.dedupKey),

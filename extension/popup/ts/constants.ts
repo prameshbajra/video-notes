@@ -5,6 +5,7 @@ const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
 const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
+const MD_TEMPLATE_VERSION_STORAGE_KEY = 'videoNotes:mdTemplateVersion';
 const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
 const FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:flashcardsEnabled';
 const NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY = 'videoNotes:newTabFlashcardsEnabled';
@@ -13,7 +14,9 @@ const FLASHCARDS_CACHE_STORAGE_KEY = 'videoNotes:flashcardsCache';
 const FLASHCARDS_DECK_SIZE = 12;
 const FLASHCARDS_MIN_NOTES = 6;
 const FLASHCARDS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_MD_TEMPLATE = '[*video-title*](*youtube-url*)\n\n- *time-url*: *note*\n*annotation-image*';
+const LEGACY_DEFAULT_MD_TEMPLATE = '[*video-title*](*youtube-url*)\n\n- *time-url*: *note*';
+const DEFAULT_MD_TEMPLATE = `${LEGACY_DEFAULT_MD_TEMPLATE}\n*annotation-image*`;
+const MD_TEMPLATE_VERSION = 2;
 const HOLD_DURATION_MS = 2000;
 const VIDEO_RENDER_BATCH_SIZE = 50;
 const NOTE_RENDER_BATCH_SIZE = 50;
@@ -35,8 +38,11 @@ export {
     FLASHCARDS_MIN_NOTES,
     GEMINI_API_KEY_STORAGE_KEY,
     HOLD_DURATION_MS,
+    LEGACY_DEFAULT_MD_TEMPLATE,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
+    MD_TEMPLATE_VERSION,
+    MD_TEMPLATE_VERSION_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NOTE_RENDER_BATCH_SIZE,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,

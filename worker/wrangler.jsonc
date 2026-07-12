@@ -1,0 +1,18 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    "name": "share-api",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-07-12",
+    "compatibility_flags": ["nodejs_compat"],
+    "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1
+    },
+    "kv_namespaces": [
+        {
+            "binding": "SHARES",
+            "id": "29406a6f960f4c5a82d2a03f77c96e4c",
+            "preview_id": "dfe9cb52b1e040368056475ccf89a5e4"
+        }
+    ]
+}

@@ -59,6 +59,7 @@ interface SharedNoteAnnotation {
 interface NormalizedNote {
     id: string;
     text: string;
+    displayText: string;
     textLower: string;
     timestamp: number;
     formattedTimestamp: string;

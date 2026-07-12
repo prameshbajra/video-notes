@@ -7,6 +7,8 @@ import {
     GEMINI_API_KEY_STORAGE_KEY,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
+    MD_TEMPLATE_VERSION,
+    MD_TEMPLATE_VERSION_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
@@ -35,6 +37,7 @@ const getStorageSnapshot = (): Promise<StorageSnapshot> =>
                 ANNOTATIONS_ENABLED_STORAGE_KEY,
                 MD_EXPORT_ENABLED_STORAGE_KEY,
                 MD_TEMPLATE_STORAGE_KEY,
+                MD_TEMPLATE_VERSION_STORAGE_KEY,
                 DELETE_HOLD_ENABLED_STORAGE_KEY,
                 FLASHCARDS_ENABLED_STORAGE_KEY,
                 NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
@@ -144,7 +147,10 @@ const persistMdTemplate = (template: string): Promise<void> =>
             return;
         }
 
-        chrome.storage.local.set({ [MD_TEMPLATE_STORAGE_KEY]: template }, () => {
+        chrome.storage.local.set({
+            [MD_TEMPLATE_STORAGE_KEY]: template,
+            [MD_TEMPLATE_VERSION_STORAGE_KEY]: MD_TEMPLATE_VERSION
+        }, () => {
             if (chrome.runtime && chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
                 return;

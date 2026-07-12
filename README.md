@@ -52,3 +52,5 @@ Serve the repo root with any static server (e.g. `npx serve .` or `python3 -m ht
 
 ## Share API Worker
 Run Worker checks with `npm run typecheck:worker`. For local Worker development, install Worker dependencies once with `npm install --prefix worker`, then use `npm --prefix worker run dev`; deploy with `npm --prefix worker run deploy`.
+
+Deploy annotation sharing through the `Deploy share stack` GitHub Actions workflow. It verifies the repository, deploys `share/` to the `static-video-notes` Pages project, deploys the Worker, then creates and retrieves a drawing-only smoke-test share. Configure `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets before running it. For a manual post-deploy check, run `SHARE_API_BASE_URL=https://share-api.video-notes.workers.dev npm run test:share:remote`.

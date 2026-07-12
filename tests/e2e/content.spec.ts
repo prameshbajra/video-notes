@@ -425,6 +425,48 @@ test('content script saves a drawing-only note from the Done button', async ({
     await expect(page.getByRole('button', { name: /includes drawing/ })).toBeVisible();
 });
 
+test('content script shares drawing-only annotations with raw empty text', async ({
+    context,
+    page
+}) => {
+    const videoId = 'e2e-share01';
+    let capturedPayload: Record<string, unknown> | null = null;
+    await context.route('https://share-api.video-notes.workers.dev/api/share', async (route) => {
+        capturedPayload = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({ id: 'share-id', url: 'https://example.test/share-id' })
+        });
+    });
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: {
+                writeText: async (_text: string): Promise<void> => {}
+            }
+        });
+    });
+
+    await openMockWatchPage(page, videoId, {
+        title: 'Drawing Share Video',
+        durationSeconds: 240,
+        currentTimeSeconds: 12
+    });
+    await page.keyboard.press('Alt+KeyA');
+    await drawRectangleAnnotation(page);
+    await page.getByRole('button', { name: 'Annotation Done' }).click();
+    await page.getByRole('button', { name: 'Share notes for this video' }).click();
+
+    await expect.poll(() => capturedPayload).not.toBeNull();
+    const notes = capturedPayload?.notes as Array<{
+        text?: string;
+        annotation?: { image?: { dataUrl?: string } };
+    }> | undefined;
+    expect(notes?.[0]?.text).toBe('');
+    expect(notes?.[0]?.annotation?.image?.dataUrl).toContain('data:image/png;base64,');
+});
+
 test('content script saves a drawing-only note with the Cmd+Enter shortcut', async ({
     getExtensionStorage,
     page

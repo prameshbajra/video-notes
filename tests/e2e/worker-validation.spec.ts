@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { validatePayload } from '../../worker/src/utils/validation';
+import worker from '../../worker/src/index';
+import {
+    MAX_PAYLOAD_BYTES,
+    readBoundedRequestText,
+    validatePayload
+} from '../../worker/src/utils/validation';
 
 const PNG_DATA_URL =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
@@ -140,4 +145,30 @@ test('worker validation rejects notes with neither text nor drawing', () => {
     };
 
     expect(() => validatePayload(payload, getRawSize(payload))).toThrow('Invalid note text');
+});
+
+test('worker stops reading request bodies once they exceed the payload cap', async () => {
+    const request = new Request('https://example.test/api/share', {
+        method: 'POST',
+        body: 'x'.repeat(MAX_PAYLOAD_BYTES + 1)
+    });
+
+    await expect(readBoundedRequestText(request)).rejects.toThrow('Payload too large');
+});
+
+test('worker advertises the annotation share contract', async () => {
+    const response = await worker.fetch(
+        new Request('https://share-api.example.test/api/capabilities'),
+        {} as never
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+        apiVersion: 2,
+        annotations: {
+            version: 1,
+            maxImageBytes: 300 * 1024,
+            maxPayloadBytes: 2 * 1024 * 1024
+        }
+    });
 });

@@ -217,7 +217,8 @@ const normalizeNotes = (videoId: string, notes: StoredNote[]): NormalizedNote[] 
                     typeof note.id === 'string' && note.id.trim()
                         ? note.id
                         : `${videoId}-${index}-${timestamp}`,
-                text: displayText,
+                text: trimmedText,
+                displayText,
                 textLower: trimmedText.toLowerCase(),
                 timestamp,
                 formattedTimestamp: formatTimestamp(timestamp),

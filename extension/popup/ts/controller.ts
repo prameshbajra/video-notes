@@ -5,8 +5,11 @@ import {
     ENABLED_STORAGE_KEY,
     FLASHCARDS_ENABLED_STORAGE_KEY,
     GEMINI_API_KEY_STORAGE_KEY,
+    LEGACY_DEFAULT_MD_TEMPLATE,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
+    MD_TEMPLATE_VERSION,
+    MD_TEMPLATE_VERSION_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NOTE_RENDER_BATCH_SIZE,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
@@ -69,6 +72,7 @@ import {
 } from './storage.js';
 import { getOrGenerateDeck } from './flashcard-deck.js';
 import { refreshFlashcardsPanel } from './flashcards.js';
+import { assertSharePayloadIsValid, getShareFailureMessage } from '../../share-payload.js';
 
 let templateDebounceTimer: number | null = null;
 let searchDebounceTimer: number | null = null;
@@ -279,11 +283,20 @@ const loadMdExportEnabledFromStorage = async (): Promise<void> => {
 
 const loadMdTemplateFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
-    const template =
+    const storedTemplate =
         typeof snapshot[MD_TEMPLATE_STORAGE_KEY] === 'string' && snapshot[MD_TEMPLATE_STORAGE_KEY].trim()
             ? (snapshot[MD_TEMPLATE_STORAGE_KEY] as string)
             : DEFAULT_MD_TEMPLATE;
+    const storedVersion = Number(snapshot[MD_TEMPLATE_VERSION_STORAGE_KEY]);
+    const template = storedTemplate === LEGACY_DEFAULT_MD_TEMPLATE
+        ? DEFAULT_MD_TEMPLATE
+        : storedTemplate;
+
     syncMdTemplate(template);
+
+    if (storedVersion !== MD_TEMPLATE_VERSION || template !== storedTemplate) {
+        await persistMdTemplate(template);
+    }
 };
 
 const loadDeleteHoldEnabledFromStorage = async (): Promise<void> => {
@@ -629,6 +642,7 @@ const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
                 return notePayload;
             })
         };
+        assertSharePayloadIsValid(payload);
 
         const data = await new Promise<{ url: string }>((resolve, reject) => {
             chrome.runtime.sendMessage(
@@ -651,8 +665,8 @@ const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
         state.sharedUrls.set(video.videoId, data.url);
         showToast('Share link copied to clipboard!', 'success');
         render(renderHandlers);
-    } catch {
-        showToast('Failed to create share link. Please try again.', 'error');
+    } catch (error) {
+        showToast(getShareFailureMessage(error), 'error');
     }
 };
 
