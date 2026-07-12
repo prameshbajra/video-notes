@@ -69,6 +69,9 @@ test('static share page shows annotation overlay for selected annotated notes', 
                             pauseVideo: function pauseVideo() {
                                 window.__pauseVideoCalled = true;
                             },
+                            playVideo: function playVideo() {
+                                window.__playVideoCalled = true;
+                            },
                             getCurrentTime: function getCurrentTime() {
                                 return window.__lastSeekTo || 0;
                             }
@@ -109,6 +112,9 @@ test('static share page shows annotation overlay for selected annotated notes', 
     await expect.poll(async () => page.evaluate(() =>
         Boolean((window as unknown as { __pauseVideoCalled?: boolean }).__pauseVideoCalled)
     )).toBe(true);
+    await expect.poll(async () => page.evaluate(() =>
+        Boolean((window as unknown as { __playVideoCalled?: boolean }).__playVideoCalled)
+    )).toBe(false);
 
     await page.evaluate(() => {
         const globalState = window as unknown as {
@@ -126,4 +132,7 @@ test('static share page shows annotation overlay for selected annotated notes', 
     await expect.poll(async () => page.evaluate(() =>
         (window as unknown as { __lastSeekTo?: number }).__lastSeekTo || null
     )).toBe(24);
+    await expect.poll(async () => page.evaluate(() =>
+        Boolean((window as unknown as { __playVideoCalled?: boolean }).__playVideoCalled)
+    )).toBe(true);
 });

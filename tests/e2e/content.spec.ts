@@ -1013,7 +1013,7 @@ test('content script does not apply a completed delete to a newly navigated vide
     await delayContentStorageWrites(page, 300);
 
     await page.getByRole('button', { name: /Delete from first video/ }).click();
-    await page.getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     await page.waitForTimeout(50);
     await page.evaluate((videoId) => {
         window.history.pushState({}, '', `/watch?v=${videoId}`);

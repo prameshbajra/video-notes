@@ -324,13 +324,19 @@
 
             const ts = parseFloat(item.getAttribute('data-timestamp'));
             if (!isNaN(ts) && player && player.seekTo) {
+                const noteIndex = parseInt(item.getAttribute('data-note-index') || '-1', 10);
+                const note = sortedNotes[noteIndex];
+                const hasAnnotation = Boolean(getAnnotationImage(note));
                 clearAnnotationOverlay();
-                if (typeof player.pauseVideo === 'function') {
+                if (hasAnnotation && typeof player.pauseVideo === 'function') {
                     player.pauseVideo();
                 }
                 player.seekTo(ts, true);
-                const noteIndex = parseInt(item.getAttribute('data-note-index') || '-1', 10);
-                updateAnnotationOverlay(sortedNotes[noteIndex], ts);
+                if (hasAnnotation) {
+                    updateAnnotationOverlay(note, ts);
+                } else if (typeof player.playVideo === 'function') {
+                    player.playVideo();
+                }
 
                 // Highlight active
                 const items = notesList.querySelectorAll('.note-item');
