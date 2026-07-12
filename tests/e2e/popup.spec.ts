@@ -4,6 +4,7 @@ const NOTES_STORAGE_KEY = 'videoNotes:notes';
 const METADATA_STORAGE_KEY = 'videoNotes:metadata';
 const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
 const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
+const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
 const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
 const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
@@ -12,6 +13,8 @@ const GEMINI_API_KEY_STORAGE_KEY = 'videoNotes:geminiApiKey';
 const VIDEO_ID = 'e2e-popup-video';
 const LARGE_LIBRARY_VIDEO_COUNT = 80;
 const LARGE_LIBRARY_NOTES_PER_VIDEO = 80;
+const PNG_DATA_URL =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
 
 const createPopupNotesSeed = (title = 'Popup Smoke Video'): Record<string, unknown> => ({
     [NOTES_STORAGE_KEY]: {
@@ -99,17 +102,61 @@ test('popup lists stored notes, filters them, and persists settings changes', as
     await page.getByLabel('Open settings').click();
     await page.locator('#enable-notes-toggle').uncheck();
     await page.locator('#zen-mode-toggle').check();
+    await expect(page.locator('#annotations-toggle')).toBeChecked();
+    await page.locator('#annotations-toggle').uncheck();
 
     await expect.poll(async () => {
-        const storage = await getExtensionStorage([ENABLED_STORAGE_KEY, ZEN_MODE_STORAGE_KEY]);
+        const storage = await getExtensionStorage([
+            ENABLED_STORAGE_KEY,
+            ZEN_MODE_STORAGE_KEY,
+            ANNOTATIONS_ENABLED_STORAGE_KEY
+        ]);
         return {
             isEnabled: storage[ENABLED_STORAGE_KEY],
-            isZenModeEnabled: storage[ZEN_MODE_STORAGE_KEY]
+            isZenModeEnabled: storage[ZEN_MODE_STORAGE_KEY],
+            isAnnotationsEnabled: storage[ANNOTATIONS_ENABLED_STORAGE_KEY]
         };
     }).toEqual({
         isEnabled: false,
-        isZenModeEnabled: true
+        isZenModeEnabled: true,
+        isAnnotationsEnabled: false
     });
+});
+
+test('popup marks annotated notes with a drawing badge', async ({
+    page,
+    popupUrl,
+    seedExtensionStorage
+}) => {
+    const seed = createPopupNotesSeed('Annotated Badge Video');
+    const notesPayload = seed[NOTES_STORAGE_KEY] as Record<string, Array<Record<string, unknown>>>;
+    const firstNote = notesPayload[VIDEO_ID]?.[0];
+    if (firstNote) {
+        firstNote.annotation = {
+            version: 1,
+            scene: { version: '7.4.0', objects: [] },
+            image: {
+                dataUrl: PNG_DATA_URL,
+                width: 1,
+                height: 1,
+                generatedAt: 1_700_000_000_200
+            },
+            viewport: {
+                width: 960,
+                height: 360
+            }
+        };
+    }
+
+    await seedExtensionStorage(seed);
+    await page.goto(popupUrl);
+
+    const badge = page.locator('.note-annotation-badge');
+    await expect(badge).toHaveCount(1);
+    await expect(badge).toHaveText('Drawing');
+    await expect(
+        page.locator('.note-button', { hasText: 'First automated note' }).locator('.note-annotation-badge')
+    ).toBeVisible();
 });
 
 test('popup keeps large note libraries paginated instead of rendering every note', async ({
@@ -283,6 +330,118 @@ test('popup copies a video as markdown with the configured template', async ({
     await expect(page.getByText('Markdown copied to clipboard!')).toBeVisible();
 });
 
+test('popup markdown export emits annotation images when the template requests them', async ({
+    page,
+    popupUrl,
+    seedExtensionStorage
+}) => {
+    const seed = createPopupNotesSeed('Markdown Annotation Video');
+    const notesPayload = seed[NOTES_STORAGE_KEY] as Record<string, Array<Record<string, unknown>>>;
+    const firstNote = notesPayload[VIDEO_ID]?.[0];
+    if (firstNote) {
+        firstNote.annotation = {
+            version: 1,
+            scene: { version: '7.4.0', objects: [] },
+            image: {
+                dataUrl: PNG_DATA_URL,
+                width: 1,
+                height: 1,
+                generatedAt: 1_700_000_000_200
+            },
+            viewport: {
+                width: 960,
+                height: 360
+            }
+        };
+    }
+
+    await seedExtensionStorage({
+        ...seed,
+        [MD_EXPORT_ENABLED_STORAGE_KEY]: true,
+        [MD_TEMPLATE_STORAGE_KEY]: '- *time-url*: *note*\n*annotation-image*'
+    });
+
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: {
+                writeText: async (text: string): Promise<void> => {
+                    (window as unknown as { __copiedText?: string }).__copiedText = text;
+                }
+            }
+        });
+    });
+
+    await page.goto(popupUrl);
+    await page.locator('.video-header-row').hover();
+    await page.getByLabel('Copy notes for "Markdown Annotation Video" as markdown').click();
+
+    await expect.poll(async () => page.evaluate(() =>
+        (window as unknown as { __copiedText?: string }).__copiedText || null
+    )).toBe(
+        '- [00:42](https://www.youtube.com/watch?v=e2e-popup-video&t=42s): First automated note\n' +
+        `![annotation](${PNG_DATA_URL})\n` +
+        '- [02:05](https://www.youtube.com/watch?v=e2e-popup-video&t=125s): Second searchable note'
+    );
+});
+
+test('popup share payload includes annotation image metadata when present', async ({
+    context,
+    page,
+    popupUrl,
+    seedExtensionStorage
+}) => {
+    const seed = createPopupNotesSeed('Share Annotation Video');
+    const notesPayload = seed[NOTES_STORAGE_KEY] as Record<string, Array<Record<string, unknown>>>;
+    const firstNote = notesPayload[VIDEO_ID]?.[0];
+    if (firstNote) {
+        firstNote.annotation = {
+            version: 1,
+            scene: { version: '7.4.0', objects: [] },
+            image: {
+                dataUrl: PNG_DATA_URL,
+                width: 1,
+                height: 1,
+                generatedAt: 1_700_000_000_200
+            },
+            viewport: {
+                width: 960,
+                height: 360
+            }
+        };
+    }
+
+    await seedExtensionStorage(seed);
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: {
+                writeText: async (_text: string): Promise<void> => {}
+            }
+        });
+    });
+
+    let capturedPayload: Record<string, unknown> | null = null;
+    await context.route('https://share-api.video-notes.workers.dev/api/share', async (route) => {
+        capturedPayload = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({ id: 'share-id', url: 'https://example.test/share-id' })
+        });
+    });
+
+    await page.goto(popupUrl);
+    await page.locator('.video-header-row').hover();
+    await page.getByLabel('Share notes for "Share Annotation Video"').click();
+
+    await expect.poll(() => capturedPayload).not.toBeNull();
+    const notes = capturedPayload?.notes as Array<{ annotation?: SharedNoteAnnotation }> | undefined;
+    expect(notes?.[0]?.annotation?.image.dataUrl).toBe(PNG_DATA_URL);
+    expect(notes?.[0]?.annotation?.viewport).toEqual({ width: 960, height: 360 });
+    expect(notes?.[1]?.annotation).toBeUndefined();
+});
+
 test('popup imports a backup and merges notes without duplicating existing notes', async ({
     getExtensionStorage,
     page,
@@ -325,7 +484,21 @@ test('popup imports a backup and merges notes without duplicating existing notes
                     timestamp: 34,
                     text: 'Imported into existing video',
                     createdAt: 2,
-                    updatedAt: 2
+                    updatedAt: 2,
+                    annotation: {
+                        version: 1,
+                        scene: { version: '7.4.0', objects: [] },
+                        image: {
+                            dataUrl: PNG_DATA_URL,
+                            width: 1,
+                            height: 1,
+                            generatedAt: 4
+                        },
+                        viewport: {
+                            width: 960,
+                            height: 360
+                        }
+                    }
                 }
             ],
             'new-video': [
@@ -365,18 +538,24 @@ test('popup imports a backup and merges notes without duplicating existing notes
 
     await expect.poll(async () => {
         const storage = await getExtensionStorage([NOTES_STORAGE_KEY, METADATA_STORAGE_KEY]);
-        const notesPayload = storage[NOTES_STORAGE_KEY] as Record<string, Array<{ id?: string }>>;
+        const notesPayload = storage[NOTES_STORAGE_KEY] as Record<
+            string,
+            Array<{ id?: string; annotation?: { image?: { dataUrl?: string } } }>
+        >;
         const metadataPayload = storage[METADATA_STORAGE_KEY] as Record<string, { noteCount?: number; title?: string }>;
         return {
             existingIds: (notesPayload['existing-video'] || []).map((note) => note.id),
             newIds: (notesPayload['new-video'] || []).map((note) => note.id),
             existingNoteCount: metadataPayload['existing-video']?.noteCount,
-            newTitle: metadataPayload['new-video']?.title
+            newTitle: metadataPayload['new-video']?.title,
+            importedAnnotation: notesPayload['existing-video']?.find((note) => note.id === 'imported-note')
+                ?.annotation?.image?.dataUrl
         };
     }).toEqual({
         existingIds: ['existing-note', 'imported-note'],
         newIds: ['new-video-note'],
         existingNoteCount: 2,
-        newTitle: 'New Imported Video'
+        newTitle: 'New Imported Video',
+        importedAnnotation: PNG_DATA_URL
     });
 });

@@ -2,7 +2,25 @@ import { state, ui } from './state.js';
 import { getVideoTitleText } from './storage.js';
 import { applyStyles } from './utils.js';
 
-const buildSharePayload = (): { videoId: string; title: string; notes: { timestamp: number; text: string }[] } | null => {
+interface SharePayloadNote {
+    timestamp: number;
+    text: string;
+    annotation?: SharedNoteAnnotation;
+}
+
+const getSharedAnnotation = (annotation: NoteAnnotation | undefined): SharedNoteAnnotation | undefined => {
+    if (!annotation) {
+        return undefined;
+    }
+
+    return {
+        version: 1,
+        image: annotation.image,
+        viewport: annotation.viewport
+    };
+};
+
+const buildSharePayload = (): { videoId: string; title: string; notes: SharePayloadNote[] } | null => {
     if (!state.videoId || state.notes.length === 0) {
         return null;
     }
@@ -10,10 +28,17 @@ const buildSharePayload = (): { videoId: string; title: string; notes: { timesta
     return {
         videoId: state.videoId,
         title: getVideoTitleText(),
-        notes: state.notes.map((n) => ({
-            timestamp: n.timestamp,
-            text: n.text
-        }))
+        notes: state.notes.map((n) => {
+            const payloadNote: SharePayloadNote = {
+                timestamp: n.timestamp,
+                text: n.text
+            };
+            const annotation = getSharedAnnotation(n.annotation);
+            if (annotation) {
+                payloadNote.annotation = annotation;
+            }
+            return payloadNote;
+        })
     };
 };
 

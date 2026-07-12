@@ -38,6 +38,23 @@ const bundleContentScript = () => {
     process.exit(1);
   }
 
+  // The drawing editor (and Fabric.js with it) ships as a separate ES module,
+  // dynamically imported by the content script on first use.
+  try {
+    buildSync({
+      entryPoints: [path.join(extensionRoot, 'scripts', 'content', 'annotation-editor.ts')],
+      outfile: path.join(distDir, 'scripts', 'annotation-editor.js'),
+      bundle: true,
+      minify: true,
+      format: 'esm',
+      platform: 'browser',
+      target: 'es2020'
+    });
+  } catch {
+    process.stderr.write('Annotation editor bundling failed.\n');
+    process.exit(1);
+  }
+
   const contentDir = path.join(distDir, 'scripts', 'content');
   if (existsSync(contentDir)) {
     rmSync(contentDir, { recursive: true, force: true });

@@ -1,4 +1,5 @@
 import {
+    ANNOTATIONS_ENABLED_STORAGE_KEY,
     DEFAULT_MD_TEMPLATE,
     DELETE_HOLD_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
@@ -32,7 +33,8 @@ import {
     syncNewTabFlashcardsToggle,
     syncNotesToggle,
     syncViewVisibility,
-    syncZenModeToggle
+    syncZenModeToggle,
+    syncAnnotationsToggle
 } from './state.js';
 import {
     getNoteDedupKey,
@@ -47,6 +49,7 @@ import { generateMarkdownFromVideo } from './markdown.js';
 import { render, type RenderHandlers } from './render.js';
 import {
     getStorageSnapshot,
+    persistAnnotationsEnabled,
     persistBackupPayload,
     persistDeleteHoldEnabled,
     persistFlashcardsEnabled,
@@ -58,6 +61,7 @@ import {
     persistZenModeEnabled,
     removeFlashcardsCache,
     removeGeminiApiKey,
+    resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
     resolveFlashcardsEnabledSetting,
     resolveNewTabFlashcardsEnabledSetting,
@@ -173,6 +177,12 @@ const handleZenToggleChange = (event: Event): void => {
     updateZenModeEnabled(isEnabled).catch(() => {});
 };
 
+const handleAnnotationsToggleChange = (event: Event): void => {
+    const target = event.target as HTMLInputElement | null;
+    const isEnabled = Boolean(target?.checked);
+    updateAnnotationsEnabled(isEnabled).catch(() => {});
+};
+
 const handleMdExportToggleChange = (event: Event): void => {
     const target = event.target as HTMLInputElement | null;
     const isEnabled = Boolean(target?.checked);
@@ -255,6 +265,12 @@ const loadZenModeFromStorage = async (): Promise<void> => {
     syncZenModeToggle(isZenModeEnabled);
 };
 
+const loadAnnotationsEnabledFromStorage = async (): Promise<void> => {
+    const snapshot = await getStorageSnapshot();
+    const isAnnotationsEnabled = resolveAnnotationsEnabledSetting(snapshot[ANNOTATIONS_ENABLED_STORAGE_KEY]);
+    syncAnnotationsToggle(isAnnotationsEnabled);
+};
+
 const loadMdExportEnabledFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
     const isMdExportEnabled = resolveEnabledSetting(snapshot[MD_EXPORT_ENABLED_STORAGE_KEY]);
@@ -312,6 +328,18 @@ const updateZenModeEnabled = async (isEnabled: boolean): Promise<void> => {
     } catch {
         syncZenModeToggle(previousValue);
         setSettingsMessage('Unable to update Zen Mode.', 'error');
+    }
+};
+
+const updateAnnotationsEnabled = async (isEnabled: boolean): Promise<void> => {
+    const previousValue = state.isAnnotationsEnabled;
+    syncAnnotationsToggle(isEnabled);
+
+    try {
+        await persistAnnotationsEnabled(isEnabled);
+    } catch {
+        syncAnnotationsToggle(previousValue);
+        setSettingsMessage('Unable to update annotations.', 'error');
     }
 };
 
@@ -586,10 +614,20 @@ const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
         const payload = {
             videoId: video.videoId,
             title: video.title,
-            notes: video.notes.map((n) => ({
-                timestamp: n.timestamp,
-                text: n.text
-            }))
+            notes: video.notes.map((n) => {
+                const notePayload: {
+                    timestamp: number;
+                    text: string;
+                    annotation?: SharedNoteAnnotation;
+                } = {
+                    timestamp: n.timestamp,
+                    text: n.text
+                };
+                if (n.annotation) {
+                    notePayload.annotation = n.annotation;
+                }
+                return notePayload;
+            })
         };
 
         const data = await new Promise<{ url: string }>((resolve, reject) => {
@@ -681,6 +719,13 @@ const storageChangeHandler = (changes: Record<string, chrome.storage.StorageChan
         syncZenModeToggle(nextZenMode);
     }
 
+    if (changes[ANNOTATIONS_ENABLED_STORAGE_KEY]) {
+        const nextAnnotationsEnabled = resolveAnnotationsEnabledSetting(
+            changes[ANNOTATIONS_ENABLED_STORAGE_KEY].newValue
+        );
+        syncAnnotationsToggle(nextAnnotationsEnabled);
+    }
+
     if (changes[MD_EXPORT_ENABLED_STORAGE_KEY]) {
         const nextMdExportEnabled = resolveEnabledSetting(changes[MD_EXPORT_ENABLED_STORAGE_KEY].newValue);
         syncMdExportToggle(nextMdExportEnabled);
@@ -760,6 +805,9 @@ const initialize = (): void => {
     loadZenModeFromStorage().catch(() => {
         syncZenModeToggle(false);
     });
+    loadAnnotationsEnabledFromStorage().catch(() => {
+        syncAnnotationsToggle(true);
+    });
     loadMdExportEnabledFromStorage().catch(() => {
         syncMdExportToggle(false);
     });
@@ -813,6 +861,10 @@ const initialize = (): void => {
 
     if (elements.zenModeToggle) {
         elements.zenModeToggle.addEventListener('change', handleZenToggleChange);
+    }
+
+    if (elements.annotationsToggle) {
+        elements.annotationsToggle.addEventListener('change', handleAnnotationsToggleChange);
     }
 
     if (elements.mdExportToggle) {

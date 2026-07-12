@@ -36,6 +36,7 @@
     },
     "permissions": [
         "storage",
+        "unlimitedStorage",
         "tabs"
     ],
     "host_permissions": [
@@ -49,6 +50,15 @@
                 "*://youtube.com/*"
             ],
             "js": ["scripts/content.js"]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["scripts/annotation-editor.js"],
+            "matches": [
+                "*://*.youtube.com/*",
+                "*://youtube.com/*"
+            ]
         }
     ]
 }

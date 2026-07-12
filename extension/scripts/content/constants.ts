@@ -7,13 +7,19 @@ const NOTES_STORAGE_KEY = 'videoNotes:notes';
 const METADATA_STORAGE_KEY = 'videoNotes:metadata';
 const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
 const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
+const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
 const ZEN_MODE_STYLE_ID = 'video-notes-zen-style';
+const ANNOTATION_ROOT_ID = 'video-notes-annotation-root';
+const ANNOTATION_STYLE_ID = 'video-notes-annotation-style';
 const OBSERVER_OPTIONS = { childList: true, subtree: true };
 const VIDEO_EVENTS = ['loadedmetadata', 'durationchange'];
 const TOOLTIP_OFFSET = 12;
 const PREVIEW_OFFSET = 8;
 
 export {
+    ANNOTATION_ROOT_ID,
+    ANNOTATION_STYLE_ID,
+    ANNOTATIONS_ENABLED_STORAGE_KEY,
     CONTAINER_ID,
     ENABLED_STORAGE_KEY,
     METADATA_STORAGE_KEY,

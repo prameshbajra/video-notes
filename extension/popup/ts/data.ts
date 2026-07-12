@@ -126,6 +126,63 @@ const formatTimestamp = (value: number): string => {
     return `${minutePart}:${secondPart}`;
 };
 
+const normalizeAnnotationImage = (value: unknown): NoteAnnotationImage | null => {
+    if (!isPlainObject(value)) {
+        return null;
+    }
+
+    const dataUrl = typeof value.dataUrl === 'string' ? value.dataUrl : '';
+    const width = Number(value.width);
+    const height = Number(value.height);
+    const generatedAt = Number(value.generatedAt);
+
+    if (!dataUrl.startsWith('data:image/png;base64,')) {
+        return null;
+    }
+
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return null;
+    }
+
+    if (!Number.isFinite(generatedAt) || generatedAt <= 0) {
+        return null;
+    }
+
+    return { dataUrl, width, height, generatedAt };
+};
+
+const normalizeAnnotationViewport = (value: unknown): NoteAnnotationViewport | null => {
+    if (!isPlainObject(value)) {
+        return null;
+    }
+
+    const width = Number(value.width);
+    const height = Number(value.height);
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return null;
+    }
+
+    return { width, height };
+};
+
+const normalizeSharedAnnotation = (value: unknown): SharedNoteAnnotation | undefined => {
+    if (!isPlainObject(value) || value.version !== 1) {
+        return undefined;
+    }
+
+    const image = normalizeAnnotationImage(value.image);
+    const viewport = normalizeAnnotationViewport(value.viewport);
+    if (!image || !viewport) {
+        return undefined;
+    }
+
+    return {
+        version: 1,
+        image,
+        viewport
+    };
+};
+
 const normalizeNotes = (videoId: string, notes: StoredNote[]): NormalizedNote[] =>
     notes
         .map((note, index): NormalizedNote | null => {
@@ -155,7 +212,7 @@ const normalizeNotes = (videoId: string, notes: StoredNote[]): NormalizedNote[] 
                     ? createdAtCandidate
                     : 0;
 
-            return {
+            const normalizedNote: NormalizedNote = {
                 id:
                     typeof note.id === 'string' && note.id.trim()
                         ? note.id
@@ -167,6 +224,13 @@ const normalizeNotes = (videoId: string, notes: StoredNote[]): NormalizedNote[] 
                 updatedAt,
                 dedupKey
             };
+
+            const annotation = normalizeSharedAnnotation(note.annotation);
+            if (annotation) {
+                normalizedNote.annotation = annotation;
+            }
+
+            return normalizedNote;
         })
         .filter((value): value is NormalizedNote => Boolean(value))
         .sort((a, b) => a.timestamp - b.timestamp);

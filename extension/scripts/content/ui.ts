@@ -5,7 +5,15 @@ const createTooltip = (
     palette: ThemePalette
 ): Pick<
     UiElements,
-    'tooltip' | 'heading' | 'timestampLabel' | 'textarea' | 'deleteButton' | 'cancelButton' | 'saveButton'
+    | 'tooltip'
+    | 'heading'
+    | 'timestampLabel'
+    | 'textarea'
+    | 'deleteButton'
+    | 'cancelButton'
+    | 'saveButton'
+    | 'annotationActionButton'
+    | 'errorMessage'
 > => {
     const tooltip = document.createElement('div');
     tooltip.id = TOOLTIP_ID;
@@ -18,7 +26,8 @@ const createTooltip = (
         display: 'none',
         flexDirection: 'column',
         gap: '12px',
-        width: '320px',
+        width: '380px',
+        maxWidth: 'calc(100vw - 24px)',
         padding: '16px',
         boxSizing: 'border-box',
         backgroundColor: palette.tooltipBackground,
@@ -41,11 +50,12 @@ const createTooltip = (
     });
 
     const textarea = document.createElement('textarea');
-    textarea.rows = 3;
+    textarea.rows = 5;
     textarea.placeholder = 'Capture your thoughts about this moment...';
     applyStyles(textarea, {
         width: '100%',
-        maxHeight: '200px',
+        minHeight: '128px',
+        maxHeight: '320px',
         resize: 'vertical',
         backgroundColor: palette.textareaBackground,
         color: palette.textareaText,
@@ -56,12 +66,36 @@ const createTooltip = (
         boxSizing: 'border-box'
     });
 
+    const annotationActionButton = createButton('Add drawing', {
+        borderRadius: '999px',
+        border: palette.surfaceBorder,
+        backgroundColor: palette.surfaceMuted,
+        color: palette.textPrimary,
+        fontSize: '13px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        padding: '8px 12px',
+        display: 'none'
+    });
+    annotationActionButton.setAttribute('aria-label', 'Create an annotation instead');
+
+    const errorMessage = document.createElement('p');
+    errorMessage.setAttribute('role', 'alert');
+    applyStyles(errorMessage, {
+        display: 'none',
+        margin: '0',
+        color: palette.deleteText,
+        fontSize: '12px',
+        lineHeight: '1.4'
+    });
+
     const actions = document.createElement('div');
     applyStyles(actions, {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        gap: '12px'
+        gap: '12px',
+        flexWrap: 'wrap'
     });
 
     const leftGroup = document.createElement('div');
@@ -73,7 +107,11 @@ const createTooltip = (
     const rightGroup = document.createElement('div');
     applyStyles(rightGroup, {
         display: 'flex',
-        gap: '8px'
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: '8px',
+        marginLeft: 'auto',
+        flexWrap: 'wrap'
     });
 
     const deleteButton = createButton('Delete', {
@@ -108,6 +146,7 @@ const createTooltip = (
         transition: 'background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease'
     });
 
+    leftGroup.appendChild(annotationActionButton);
     leftGroup.appendChild(deleteButton);
     rightGroup.appendChild(cancelButton);
     rightGroup.appendChild(saveButton);
@@ -117,6 +156,7 @@ const createTooltip = (
     tooltip.appendChild(heading);
     tooltip.appendChild(timestampLabel);
     tooltip.appendChild(textarea);
+    tooltip.appendChild(errorMessage);
     tooltip.appendChild(actions);
 
     return {
@@ -124,6 +164,8 @@ const createTooltip = (
         heading,
         timestampLabel,
         textarea,
+        annotationActionButton,
+        errorMessage,
         deleteButton,
         cancelButton,
         saveButton
@@ -207,7 +249,8 @@ const createContainer = (palette: ThemePalette): UiElements => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '12px'
+        gap: '12px',
+        flexWrap: 'wrap'
     });
 
     const title = document.createElement('h2');
@@ -223,7 +266,9 @@ const createContainer = (palette: ThemePalette): UiElements => {
     applyStyles(actions, {
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        justifyContent: 'flex-end',
+        gap: '8px',
+        flexWrap: 'wrap'
     });
 
     const zenButton = createButton('Zen mode', {
@@ -259,6 +304,24 @@ const createContainer = (palette: ThemePalette): UiElements => {
     addButton.id = 'video-notes-add-button';
     addButton.setAttribute('aria-label', 'Add a note for the current moment');
 
+    const annotateButton = createButton('Annotate', {
+        borderRadius: '999px',
+        border: palette.surfaceBorder,
+        backgroundColor: palette.surfaceMuted,
+        color: palette.textPrimary,
+        fontSize: '13px',
+        fontWeight: '600',
+        lineHeight: '1.2',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '6px 12px'
+    });
+    annotateButton.id = 'video-notes-annotate-button';
+    annotateButton.setAttribute('aria-label', 'Annotate the video at the current moment');
+    annotateButton.title = 'Annotate — Alt/Option + A';
+
     const shareButton = createButton('Share', {
         borderRadius: '999px',
         border: palette.surfaceBorder,
@@ -278,6 +341,7 @@ const createContainer = (palette: ThemePalette): UiElements => {
     header.appendChild(title);
     actions.appendChild(zenButton);
     actions.appendChild(shareButton);
+    actions.appendChild(annotateButton);
     actions.appendChild(addButton);
     header.appendChild(actions);
 
@@ -310,14 +374,23 @@ const createContainer = (palette: ThemePalette): UiElements => {
 
     const emptyState = document.createElement('span');
     emptyState.innerHTML =
-        'No notes yet. Click \u201c+ Add note\u201d to save your thoughts. <br>Use Alt + N (Windows) or Option + N (Mac) to create a new note, and Ctrl + Enter to save it.';
+        'No notes yet. Add a text note or annotate the current frame. <br>Use Alt/Option + N for a note, Alt/Option + A for an annotation, and Ctrl/Cmd + Enter to save.';
     applyStyles(emptyState, {
         color: palette.textSecondary,
         fontSize: '13px'
     });
 
-    const { tooltip, heading, timestampLabel, textarea, deleteButton, cancelButton, saveButton } =
-        createTooltip(palette);
+    const {
+        tooltip,
+        heading,
+        timestampLabel,
+        textarea,
+        annotationActionButton,
+        errorMessage,
+        deleteButton,
+        cancelButton,
+        saveButton
+    } = createTooltip(palette);
     const { previewTooltip, previewText } = createPreviewTooltip(palette);
     const trackHoverTooltip = createTrackHoverTooltip(palette);
 
@@ -335,6 +408,7 @@ const createContainer = (palette: ThemePalette): UiElements => {
     return {
         container,
         addButton,
+        annotateButton,
         zenButton,
         shareButton,
         track,
@@ -344,6 +418,8 @@ const createContainer = (palette: ThemePalette): UiElements => {
         heading,
         timestampLabel,
         textarea,
+        annotationActionButton,
+        errorMessage,
         deleteButton,
         cancelButton,
         saveButton,

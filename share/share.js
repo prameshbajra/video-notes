@@ -59,6 +59,19 @@
         xhr.send();
     }
 
+    function getAnnotationImage(note) {
+        if (!note || !note.annotation || !note.annotation.image) {
+            return null;
+        }
+
+        const image = note.annotation.image;
+        if (typeof image.dataUrl !== 'string' || !image.dataUrl.startsWith('data:image/png;base64,')) {
+            return null;
+        }
+
+        return image;
+    }
+
     function renderPage(data) {
         const app = document.getElementById('app');
 
@@ -85,7 +98,18 @@
         videoWrapper.className = 'video-wrapper';
         const playerDiv = document.createElement('div');
         playerDiv.id = 'yt-player';
+        const annotationOverlay = document.createElement('img');
+        annotationOverlay.className = 'annotation-overlay';
+        annotationOverlay.alt = '';
+        annotationOverlay.hidden = true;
+        const hideAnnotationButton = document.createElement('button');
+        hideAnnotationButton.type = 'button';
+        hideAnnotationButton.className = 'annotation-hide-button';
+        hideAnnotationButton.textContent = 'Hide drawing';
+        hideAnnotationButton.hidden = true;
         videoWrapper.appendChild(playerDiv);
+        videoWrapper.appendChild(annotationOverlay);
+        videoWrapper.appendChild(hideAnnotationButton);
 
         // Notes panel
         const notesPanel = document.createElement('div');
@@ -124,6 +148,7 @@
                 const li = document.createElement('li');
                 li.className = 'note-item';
                 li.setAttribute('data-timestamp', String(note.timestamp));
+                li.setAttribute('data-note-index', String(i));
 
                 const tsBtn = document.createElement('button');
                 tsBtn.className = 'note-timestamp';
@@ -132,10 +157,19 @@
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'note-text';
-                textSpan.textContent = note.text;
+                textSpan.textContent = note.text || (getAnnotationImage(note) ? 'Drawing annotation' : '');
 
                 li.appendChild(tsBtn);
                 li.appendChild(textSpan);
+
+                if (getAnnotationImage(note)) {
+                    const badge = document.createElement('span');
+                    badge.className = 'note-annotation-badge';
+                    badge.textContent = 'Drawing';
+                    badge.title = 'Jump to this note to see its drawing on the video';
+                    li.appendChild(badge);
+                }
+
                 notesList.appendChild(li);
             }
 
@@ -175,8 +209,103 @@
         app.innerHTML = '';
         app.appendChild(container);
 
-        // Init YouTube player
-        initPlayer(data.videoId);
+        let activeAnnotationTimestamp = null;
+        let activeAnnotationNote = null;
+        let overlayWatchTimer = null;
+
+        function positionAnnotationOverlay() {
+            if (!activeAnnotationNote || !activeAnnotationNote.annotation) {
+                return;
+            }
+
+            const viewport = activeAnnotationNote.annotation.viewport || {};
+            const sourceWidth = Number(viewport.width);
+            const sourceHeight = Number(viewport.height);
+            const targetWidth = videoWrapper.clientWidth;
+            const targetHeight = videoWrapper.clientHeight;
+            if (
+                !Number.isFinite(sourceWidth) ||
+                !Number.isFinite(sourceHeight) ||
+                sourceWidth <= 0 ||
+                sourceHeight <= 0 ||
+                targetWidth <= 0 ||
+                targetHeight <= 0
+            ) {
+                annotationOverlay.style.inset = '0';
+                annotationOverlay.style.width = '100%';
+                annotationOverlay.style.height = '100%';
+                return;
+            }
+
+            const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+            const width = sourceWidth * scale;
+            const height = sourceHeight * scale;
+            annotationOverlay.style.inset = 'auto';
+            annotationOverlay.style.width = `${width}px`;
+            annotationOverlay.style.height = `${height}px`;
+            annotationOverlay.style.left = `${(targetWidth - width) / 2}px`;
+            annotationOverlay.style.top = `${(targetHeight - height) / 2}px`;
+        }
+
+        function clearAnnotationOverlay() {
+            annotationOverlay.hidden = true;
+            annotationOverlay.removeAttribute('src');
+            hideAnnotationButton.hidden = true;
+            activeAnnotationTimestamp = null;
+            activeAnnotationNote = null;
+            if (overlayWatchTimer !== null) {
+                window.clearInterval(overlayWatchTimer);
+                overlayWatchTimer = null;
+            }
+        }
+
+        function watchAnnotationPosition() {
+            if (overlayWatchTimer !== null || activeAnnotationTimestamp === null) {
+                return;
+            }
+
+            overlayWatchTimer = window.setInterval(() => {
+                if (
+                    activeAnnotationTimestamp === null ||
+                    !player ||
+                    typeof player.getCurrentTime !== 'function'
+                ) {
+                    return;
+                }
+
+                const currentTime = Number(player.getCurrentTime());
+                if (Number.isFinite(currentTime) && Math.abs(currentTime - activeAnnotationTimestamp) > 0.75) {
+                    clearAnnotationOverlay();
+                }
+            }, 250);
+        }
+
+        hideAnnotationButton.addEventListener('click', clearAnnotationOverlay);
+
+        // Init YouTube player. Playback always dismisses a point-in-time drawing.
+        initPlayer(data.videoId, clearAnnotationOverlay);
+
+        function updateAnnotationOverlay(note, timestamp) {
+            const image = getAnnotationImage(note);
+            if (!image) {
+                clearAnnotationOverlay();
+                return;
+            }
+
+            annotationOverlay.src = image.dataUrl;
+            annotationOverlay.hidden = false;
+            hideAnnotationButton.hidden = false;
+            activeAnnotationTimestamp = timestamp;
+            activeAnnotationNote = note;
+            positionAnnotationOverlay();
+            watchAnnotationPosition();
+        }
+
+        window.addEventListener('resize', positionAnnotationOverlay);
+        if (typeof ResizeObserver !== 'undefined') {
+            const overlayResizeObserver = new ResizeObserver(positionAnnotationOverlay);
+            overlayResizeObserver.observe(videoWrapper);
+        }
 
         // Dynamic OG image using YouTube thumbnail
         if (data.videoId) {
@@ -195,8 +324,13 @@
 
             const ts = parseFloat(item.getAttribute('data-timestamp'));
             if (!isNaN(ts) && player && player.seekTo) {
+                clearAnnotationOverlay();
+                if (typeof player.pauseVideo === 'function') {
+                    player.pauseVideo();
+                }
                 player.seekTo(ts, true);
-                player.playVideo();
+                const noteIndex = parseInt(item.getAttribute('data-note-index') || '-1', 10);
+                updateAnnotationOverlay(sortedNotes[noteIndex], ts);
 
                 // Highlight active
                 const items = notesList.querySelectorAll('.note-item');
@@ -220,12 +354,12 @@
         });
     }
 
-    function initPlayer(videoId) {
+    function initPlayer(videoId, onPlayback) {
         if (window.YT && window.YT.Player) {
-            createPlayer(videoId);
+            createPlayer(videoId, onPlayback);
         } else {
             window.onYouTubeIframeAPIReady = function () {
-                createPlayer(videoId);
+                createPlayer(videoId, onPlayback);
             };
             const tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
@@ -233,13 +367,23 @@
         }
     }
 
-    function createPlayer(videoId) {
+    function createPlayer(videoId, onPlayback) {
         player = new window.YT.Player('yt-player', {
             videoId: videoId,
             playerVars: {
                 autoplay: 0,
                 modestbranding: 1,
                 rel: 0
+            },
+            events: {
+                onStateChange: function (event) {
+                    const playingState = window.YT && window.YT.PlayerState
+                        ? window.YT.PlayerState.PLAYING
+                        : 1;
+                    if (event && event.data === playingState) {
+                        onPlayback();
+                    }
+                }
             }
         });
     }

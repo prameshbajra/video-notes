@@ -357,6 +357,19 @@ const applyThemeToUi = (palette: ThemePalette | null): void => {
         ui.addButton.style.backgroundColor = palette.accent;
         ui.addButton.style.color = palette.accentContrast;
     }
+    if (ui.annotateButton) {
+        ui.annotateButton.style.backgroundColor = palette.surfaceMuted;
+        ui.annotateButton.style.color = palette.textPrimary;
+        ui.annotateButton.style.border = palette.surfaceBorder;
+    }
+    if (ui.annotationActionButton) {
+        ui.annotationActionButton.style.backgroundColor = palette.surfaceMuted;
+        ui.annotationActionButton.style.color = palette.textPrimary;
+        ui.annotationActionButton.style.border = palette.surfaceBorder;
+    }
+    if (ui.errorMessage) {
+        ui.errorMessage.style.color = palette.deleteText;
+    }
 
     syncZenButtonAppearance(palette);
 };
