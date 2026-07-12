@@ -13,16 +13,18 @@ let tooltipDismissCleanup: (() => void) | null = null;
 let lastTrackHoverClientX: number | null = null;
 
 const closeTooltip = (options: { resumePlayback?: boolean } = {}): void => {
-    if (!ui.tooltip) {
-        return;
-    }
-
     const { resumePlayback = true } = options;
 
-    ui.tooltip.style.display = 'none';
-    ui.tooltip.style.visibility = 'visible';
+    state.captureSessionId += 1;
+    if (ui.tooltip) {
+        ui.tooltip.style.display = 'none';
+        ui.tooltip.style.visibility = 'visible';
+    }
     if (ui.textarea) {
         ui.textarea.value = '';
+    }
+    if (ui.saveButton) {
+        ui.saveButton.disabled = false;
     }
     closeAnnotationEditor();
     state.tooltipMode = null;
@@ -395,6 +397,7 @@ const openTooltip = ({
         return;
     }
 
+    state.captureSessionId += 1;
     state.tooltipMode = mode;
     state.captureKind = 'text';
     state.pendingTimestamp = timestamp;
@@ -421,6 +424,9 @@ const openTooltip = ({
     }
     if (ui.deleteButton) {
         ui.deleteButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
+    }
+    if (ui.saveButton) {
+        ui.saveButton.disabled = false;
     }
     if (ui.errorMessage) {
         ui.errorMessage.style.display = 'none';

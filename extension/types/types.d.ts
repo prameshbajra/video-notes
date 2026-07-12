@@ -164,6 +164,7 @@ interface ExtensionState {
     isEnabled: boolean;
     isZenModeEnabled: boolean;
     isAnnotationsEnabled: boolean;
+    captureSessionId: number;
 }
 
 type ViewName = 'notes' | 'settings';

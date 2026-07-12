@@ -71,6 +71,31 @@ const drawRectangleAnnotation = async (
     await page.mouse.up();
 };
 
+const delayContentStorageWrites = async (page: Page, delayMilliseconds: number): Promise<void> => {
+    const session = await page.context().newCDPSession(page);
+    const contentContextId = new Promise<number>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Content script execution context not found')), 5_000);
+        session.on('Runtime.executionContextCreated', ({ context }) => {
+            if (context.name.startsWith('Video Notes')) {
+                clearTimeout(timeout);
+                resolve(context.id);
+            }
+        });
+    });
+
+    await session.send('Runtime.enable');
+    const contextId = await contentContextId;
+    await session.send('Runtime.evaluate', {
+        contextId,
+        expression: `(() => {
+            const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+            chrome.storage.local.set = (items, callback) => {
+                window.setTimeout(() => originalSet(items, callback), ${delayMilliseconds});
+            };
+        })()`
+    });
+};
+
 test.beforeEach(async ({ clearExtensionStorage }) => {
     await clearExtensionStorage();
 });
@@ -919,4 +944,159 @@ test('content script lets the user move the drawing toolbar by its grip', async 
 
     expect(after.x).toBeGreaterThan(before.x + 100);
     expect(after.y).toBeGreaterThan(before.y + 50);
+});
+
+test('content script does not apply a completed save to a newly navigated video', async ({
+    getExtensionStorage,
+    page
+}) => {
+    const firstVideoId = 'save-race-a';
+    const secondVideoId = 'save-race-b';
+    await openMockWatchPage(page, firstVideoId, { currentTimeSeconds: 15 });
+    await expect(page.locator('#video-notes-container')).toBeVisible();
+    await delayContentStorageWrites(page, 300);
+
+    await page.getByRole('button', { name: /add a note/i }).click();
+    await page.locator('#video-notes-tooltip textarea').fill('Saved on the first video');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await page.evaluate((videoId) => {
+        window.history.pushState({}, '', `/watch?v=${videoId}`);
+        const title = document.querySelector('#title');
+        if (title) {
+            title.textContent = 'Second Video';
+        }
+        window.dispatchEvent(new Event('yt-navigate-finish'));
+    }, secondVideoId);
+
+    await expect(page.locator('#video-notes-track [data-note-id]')).toHaveCount(0);
+    await page.getByRole('button', { name: /add a note/i }).click();
+    const secondSaveButton = page.getByRole('button', { name: 'Save' });
+    await expect(secondSaveButton).toBeEnabled();
+    await page.locator('#video-notes-tooltip textarea').fill('Saved on the second video');
+    await secondSaveButton.click();
+
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage(NOTES_STORAGE_KEY);
+        const notes = storage[NOTES_STORAGE_KEY] as Record<string, Array<{ text?: string }>> | undefined;
+        return notes?.[firstVideoId]?.[0]?.text || null;
+    }).toBe('Saved on the first video');
+    await expect(page.locator('#video-notes-track [data-note-id]')).toHaveCount(1);
+
+    const storage = await getExtensionStorage(NOTES_STORAGE_KEY);
+    const notes = storage[NOTES_STORAGE_KEY] as Record<string, Array<{ text?: string }>>;
+    expect(notes[secondVideoId]?.[0]?.text).toBe('Saved on the second video');
+});
+
+test('content script does not apply a completed delete to a newly navigated video', async ({
+    getExtensionStorage,
+    page,
+    seedExtensionStorage
+}) => {
+    const firstVideoId = 'delete-race-a';
+    const secondVideoId = 'delete-race-b';
+    const createNote = (id: string, text: string) => ({
+        id,
+        timestamp: 10,
+        text,
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000
+    });
+    await seedExtensionStorage({
+        [NOTES_STORAGE_KEY]: {
+            [firstVideoId]: [createNote('first-note', 'Delete from first video')],
+            [secondVideoId]: [createNote('second-note', 'Keep on second video')]
+        }
+    });
+    await openMockWatchPage(page, firstVideoId);
+    await expect(page.getByRole('button', { name: /Delete from first video/ })).toBeVisible();
+    await delayContentStorageWrites(page, 300);
+
+    await page.getByRole('button', { name: /Delete from first video/ }).click();
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await page.waitForTimeout(50);
+    await page.evaluate((videoId) => {
+        window.history.pushState({}, '', `/watch?v=${videoId}`);
+        window.dispatchEvent(new Event('yt-navigate-finish'));
+    }, secondVideoId);
+
+    await page.waitForTimeout(750);
+    await expect(page.getByRole('button', { name: /Keep on second video/ })).toBeVisible();
+
+    const storage = await getExtensionStorage(NOTES_STORAGE_KEY);
+    const notes = storage[NOTES_STORAGE_KEY] as Record<string, Array<{ id?: string }>>;
+    expect(notes[secondVideoId]?.[0]?.id).toBe('second-note');
+});
+
+test('annotation editor draws shapes from touch input', async ({ page }) => {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Emulation.setTouchEmulationEnabled', {
+        enabled: true,
+        maxTouchPoints: 1
+    });
+    await openMockWatchPage(page, 'touch-draw1', { currentTimeSeconds: 20 });
+    await page.keyboard.press('Alt+KeyA');
+    await openDrawingEditor(page);
+    await page.getByRole('button', { name: 'Annotation Rectangle' }).click();
+
+    const canvas = page.locator('#video-notes-annotation-root .upper-canvas');
+    await canvas.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const dispatchTouch = (type: string, x: number, y: number): void => {
+            const touch = new Touch({
+                identifier: 1,
+                target: element,
+                clientX: box.left + x,
+                clientY: box.top + y
+            });
+            const activeTouches = type === 'touchend' ? [] : [touch];
+            element.dispatchEvent(new TouchEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                touches: activeTouches,
+                targetTouches: activeTouches,
+                changedTouches: [touch]
+            }));
+        };
+
+        dispatchTouch('touchstart', 120, 120);
+        dispatchTouch('touchmove', 280, 220);
+        dispatchTouch('touchend', 280, 220);
+    });
+
+    await expect(page.locator('#video-notes-annotation-root')).toHaveAttribute('data-annotation-objects', '1');
+});
+
+test('annotation toolbar stays within a narrow video player', async ({ page }) => {
+    await openMockWatchPage(page, 'narrow-ui01', { currentTimeSeconds: 5 });
+    await page.evaluate(() => {
+        const player = document.getElementById('player');
+        const primary = document.getElementById('primary-inner');
+        if (player) {
+            player.style.width = '480px';
+        }
+        if (primary) {
+            primary.style.width = '480px';
+        }
+    });
+
+    await page.keyboard.press('Alt+KeyA');
+    await openDrawingEditor(page);
+    const dimensions = await page.locator('#video-notes-annotation-toolbar').evaluate((toolbar) => {
+        const root = document.getElementById('video-notes-annotation-root');
+        const rootBox = root?.getBoundingClientRect();
+        const toolbarBox = toolbar.getBoundingClientRect();
+        return {
+            rootLeft: rootBox?.left || 0,
+            rootRight: rootBox?.right || 0,
+            toolbarLeft: toolbarBox.left,
+            toolbarRight: toolbarBox.right,
+            clientWidth: toolbar.clientWidth,
+            scrollWidth: toolbar.scrollWidth
+        };
+    });
+
+    expect(dimensions.toolbarLeft).toBeGreaterThanOrEqual(dimensions.rootLeft);
+    expect(dimensions.toolbarRight).toBeLessThanOrEqual(dimensions.rootRight);
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 });

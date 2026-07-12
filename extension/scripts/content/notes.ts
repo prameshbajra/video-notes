@@ -24,7 +24,14 @@ import {
 let shortcutListenerAttached = false;
 let annotationCallbacksConfigured = false;
 let ensureUiReadyRef: ((videoIdOverride?: string) => boolean) | null = null;
-let isPersistingCapture = false;
+const persistingCaptureSessions = new Set<number>();
+let persistenceQueue: Promise<void> = Promise.resolve();
+
+const persistNotesInOrder = (videoId: string, notes: Note[]): Promise<void> => {
+    const operation = persistenceQueue.then(() => persistNotesForVideo(videoId, notes));
+    persistenceQueue = operation.catch(() => {});
+    return operation;
+};
 
 const setEnsureUiReady = (callback: (videoIdOverride?: string) => boolean): void => {
     ensureUiReadyRef = callback;
@@ -252,6 +259,7 @@ const startAnnotationCapture = ({
     video.pause();
     video.currentTime = timestamp;
 
+    state.captureSessionId += 1;
     state.tooltipMode = note ? 'edit' : 'create';
     state.captureKind = 'annotation';
     state.pendingTimestamp = timestamp;
@@ -384,11 +392,15 @@ const attachShortcutListener = (): void => {
 };
 
 const handleSave = async (): Promise<void> => {
-    if (isPersistingCapture) {
-        return;
-    }
     if (!state.videoId || !state.tooltipMode) {
         closeTooltip();
+        return;
+    }
+
+    const captureSessionId = state.captureSessionId;
+    const videoId = state.videoId;
+    const activeNoteId = state.activeNoteId;
+    if (persistingCaptureSessions.has(captureSessionId)) {
         return;
     }
 
@@ -424,7 +436,7 @@ const handleSave = async (): Promise<void> => {
 
         notes.push(newNote);
     } else if (state.tooltipMode === 'edit' && state.activeNoteId) {
-        const index = notes.findIndex((note) => note.id === state.activeNoteId);
+        const index = notes.findIndex((note) => note.id === activeNoteId);
         if (index >= 0) {
             const existingNote = notes[index];
             if (!existingNote) {
@@ -451,7 +463,7 @@ const handleSave = async (): Promise<void> => {
 
     const savedNote = state.tooltipMode === 'create'
         ? notes[notes.length - 1]
-        : notes.find((note) => note.id === state.activeNoteId);
+        : notes.find((note) => note.id === activeNoteId);
     if (!savedNote || (!savedNote.text && !savedNote.annotation)) {
         const message = state.captureKind === 'annotation'
             ? 'Draw something before saving the annotation.'
@@ -466,24 +478,30 @@ const handleSave = async (): Promise<void> => {
     }
 
     notes.sort((a, b) => a.timestamp - b.timestamp);
-    isPersistingCapture = true;
+    persistingCaptureSessions.add(captureSessionId);
     if (ui.saveButton) {
         ui.saveButton.disabled = true;
     }
     try {
-        await persistNotesForVideo(state.videoId, notes);
+        await persistNotesInOrder(videoId, notes);
+        if (state.videoId !== videoId || state.captureSessionId !== captureSessionId) {
+            return;
+        }
         state.notes = notes;
         renderNotesTrack();
         closeTooltip();
     } catch {
+        if (state.videoId !== videoId || state.captureSessionId !== captureSessionId) {
+            return;
+        }
         if (isAnnotationEditorActive()) {
             showAnnotationError('Unable to save. Your drawing is still open; please try again.');
         } else {
             showTooltipError('Unable to save this note. Your changes are still here; please try again.');
         }
     } finally {
-        isPersistingCapture = false;
-        if (ui.saveButton) {
+        persistingCaptureSessions.delete(captureSessionId);
+        if (ui.saveButton && state.captureSessionId === captureSessionId) {
             ui.saveButton.disabled = false;
         }
     }
@@ -494,18 +512,34 @@ const handleDelete = async (): Promise<void> => {
         return;
     }
 
-    const filtered = state.notes.filter((note) => note.id !== state.activeNoteId);
+    const captureSessionId = state.captureSessionId;
+    const videoId = state.videoId;
+    const activeNoteId = state.activeNoteId;
+    if (persistingCaptureSessions.has(captureSessionId)) {
+        return;
+    }
+
+    const filtered = state.notes.filter((note) => note.id !== activeNoteId);
+    persistingCaptureSessions.add(captureSessionId);
     try {
-        await persistNotesForVideo(state.videoId, filtered);
+        await persistNotesInOrder(videoId, filtered);
+        if (state.videoId !== videoId || state.captureSessionId !== captureSessionId) {
+            return;
+        }
         state.notes = filtered;
         renderNotesTrack();
         closeTooltip();
     } catch {
+        if (state.videoId !== videoId || state.captureSessionId !== captureSessionId) {
+            return;
+        }
         if (isAnnotationEditorActive()) {
             showAnnotationError('Unable to delete this annotation. Please try again.');
         } else {
             showTooltipError('Unable to delete this note. Please try again.');
         }
+    } finally {
+        persistingCaptureSessions.delete(captureSessionId);
     }
 };
 

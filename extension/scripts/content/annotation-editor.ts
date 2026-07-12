@@ -1,5 +1,5 @@
 import { Canvas, Ellipse, Line, Path, PencilBrush, Rect, Textbox } from 'fabric';
-import type { FabricObject } from 'fabric';
+import type { FabricObject, TPointerEvent } from 'fabric';
 import { ANNOTATION_ROOT_ID, ANNOTATION_STYLE_ID } from './constants.js';
 import { applyStyles, getVideoElement, isEditableTarget } from './utils.js';
 
@@ -168,7 +168,11 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
     display: flex;
     align-items: stretch;
     gap: 8px;
+    box-sizing: border-box;
+    width: max-content;
     max-width: calc(100% - 16px);
+    max-height: calc(100% - 20px);
+    overflow: auto;
     padding: 8px 10px;
     background: rgba(18, 18, 18, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.14);
@@ -208,15 +212,18 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
 }
 #${ANNOTATION_ROOT_ID} .vn-ann-row {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
 }
 #${ANNOTATION_ROOT_ID} .vn-ann-group {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
 }
 #${ANNOTATION_ROOT_ID} .vn-ann-group--swatches {
@@ -871,7 +878,7 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
         originY: 'top'
     });
 
-    const getPointerPosition = (canvas: Canvas, event: MouseEvent): PointerPosition => {
+    const getPointerPosition = (canvas: Canvas, event: TPointerEvent): PointerPosition => {
         const pointer = canvas.getScenePoint(event);
         return {
             x: pointer.x,
@@ -1016,7 +1023,7 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
         captureHistory();
     };
 
-    const eraseTargetAt = (canvas: Canvas, event: MouseEvent): void => {
+    const eraseTargetAt = (canvas: Canvas, event: TPointerEvent): void => {
         const { target } = canvas.findTarget(event);
         if (!target) {
             return;
@@ -1029,10 +1036,6 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
 
     const attachCanvasListeners = (canvas: Canvas): void => {
         canvas.on('mouse:down', (event) => {
-            if (!(event.e instanceof MouseEvent)) {
-                return;
-            }
-
             if (editor.activeTool === 'eraser') {
                 editor.isPointerDown = true;
                 editor.eraserRemovedObject = false;
@@ -1070,7 +1073,7 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
         });
 
         canvas.on('mouse:move', (event) => {
-            if (!editor.isPointerDown || !(event.e instanceof MouseEvent)) {
+            if (!editor.isPointerDown) {
                 return;
             }
 
@@ -1088,7 +1091,7 @@ const createAnnotationEditor = (host: AnnotationEditorHost): AnnotationEditorApi
         });
 
         canvas.on('mouse:up', (event) => {
-            if (!editor.isPointerDown || !(event.e instanceof MouseEvent)) {
+            if (!editor.isPointerDown) {
                 return;
             }
 

@@ -8,6 +8,16 @@
         "enabled": true,
         "head_sampling_rate": 1
     },
+    "ratelimits": [
+        {
+            "name": "SHARE_RATE_LIMITER",
+            "namespace_id": "73201957",
+            "simple": {
+                "limit": 10,
+                "period": 60
+            }
+        }
+    ],
     "kv_namespaces": [
         {
             "binding": "SHARES",

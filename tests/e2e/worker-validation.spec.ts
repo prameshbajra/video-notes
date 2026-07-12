@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import worker from '../../worker/src/index';
+import { handleCreateShare } from '../../worker/src/handlers/share';
 import {
     MAX_PAYLOAD_BYTES,
     readBoundedRequestText,
@@ -22,6 +23,19 @@ const createPayload = (annotation: unknown): Record<string, unknown> => ({
 });
 
 const getRawSize = (payload: unknown): number => new TextEncoder().encode(JSON.stringify(payload)).length;
+
+const createShareRequest = (): Request => new Request('https://share-api.example.test/api/share', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'cf-connecting-ip': '203.0.113.8'
+    },
+    body: JSON.stringify({
+        videoId: 'abcDEF12345',
+        title: 'Rate Limit Test',
+        notes: [{ timestamp: 12, text: 'A valid note' }]
+    })
+});
 
 test('worker validation accepts PNG annotation payloads', () => {
     const payload = createPayload({
@@ -171,4 +185,48 @@ test('worker advertises the annotation share contract', async () => {
             maxPayloadBytes: 2 * 1024 * 1024
         }
     });
+});
+
+test('worker rejects share creation when the rate limit binding denies it', async () => {
+    let stored = false;
+    const env: Env = {
+        SHARE_RATE_LIMITER: {
+            limit: async () => ({ success: false })
+        },
+        SHARES: {
+            put: async () => {
+                stored = true;
+            }
+        } as KVNamespace
+    };
+
+    const response = await handleCreateShare(createShareRequest(), env);
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('60');
+    expect(stored).toBe(false);
+});
+
+test('worker keys the rate limit binding by client IP before storing a share', async () => {
+    let rateLimitKey = '';
+    let storedKey = '';
+    const env: Env = {
+        SHARE_RATE_LIMITER: {
+            limit: async ({ key }) => {
+                rateLimitKey = key;
+                return { success: true };
+            }
+        },
+        SHARES: {
+            put: async (key) => {
+                storedKey = key;
+            }
+        } as KVNamespace
+    };
+
+    const response = await handleCreateShare(createShareRequest(), env);
+
+    expect(response.status).toBe(201);
+    expect(rateLimitKey).toBe('203.0.113.8');
+    expect(storedKey).toMatch(/^share:/);
 });

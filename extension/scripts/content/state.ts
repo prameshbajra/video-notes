@@ -12,7 +12,8 @@ const state: ExtensionState = {
     resumePlaybackVideo: null,
     isEnabled: true,
     isZenModeEnabled: false,
-    isAnnotationsEnabled: true
+    isAnnotationsEnabled: true,
+    captureSessionId: 0
 };
 
 const ui: UiElements = {
