@@ -41,7 +41,7 @@ const collectNotesForPrompt = (
         const videoTitle = rawTitle || videoId;
 
         normalized.forEach((note) => {
-            if (!note.text || note.text === '(No text)') {
+            if (!note.text) {
                 return;
             }
             const trimmed = note.text.length > MAX_NOTE_CHARS ? `${note.text.slice(0, MAX_NOTE_CHARS)}…` : note.text;

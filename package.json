@@ -1,6 +1,6 @@
 {
     "name": "video-notes",
-    "version": "2.3.1",
+    "version": "2.4.0",
     "private": true,
     "scripts": {
         "build": "node extension/tools/build.mjs",
@@ -13,14 +13,16 @@
         "test": "npm run test:e2e",
         "test:e2e": "npm run build && playwright test",
         "test:e2e:headed": "npm run build && playwright test --headed",
+        "test:share:remote": "node tests/deployment/share-smoke.mjs",
         "test:ci": "npm run verify",
         "verify": "npm run lint && npm run typecheck && npm run test:e2e",
         "zip-chrome": "npm run build && cd extension/dist && zip -r -FS ../../dist-chrome.zip .",
         "zip-fire": "npm run build && cd extension/dist && zip -r -FS ../../dist-fire.zip ."
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "^4.20241205.0",
+        "@cloudflare/workers-types": "^5.20260712.1",
         "@eslint/js": "^9.39.1",
+        "@types/node": "^24.0.0",
         "@playwright/test": "1.57.0",
         "@types/chrome": "^0.1.31",
         "@typescript-eslint/eslint-plugin": "^8.7.0",
@@ -28,6 +30,7 @@
         "chokidar-cli": "^3.0.0",
         "esbuild": "^0.25.9",
         "eslint": "^9.39.1",
+        "fabric": "^7.4.0",
         "globals": "^16.5.0",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.48.0"

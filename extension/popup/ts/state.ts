@@ -20,6 +20,7 @@ const state: PopupState = {
     activeView: VIEW_NOTES,
     isNotesEnabled: true,
     isZenModeEnabled: false,
+    isAnnotationsEnabled: true,
     isMdExportEnabled: false,
     mdTemplate: DEFAULT_MD_TEMPLATE,
     isDeleteHoldEnabled: true,
@@ -45,6 +46,7 @@ const elements: PopupElements = {
     settingsMessage: document.getElementById('settings-message') as HTMLParagraphElement | null,
     enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null,
     zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null,
+    annotationsToggle: document.getElementById('annotations-toggle') as HTMLInputElement | null,
     mdExportToggle: document.getElementById('md-export-toggle') as HTMLInputElement | null,
     mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null,
     deleteHoldToggle: document.getElementById('delete-hold-toggle') as HTMLInputElement | null,
@@ -71,6 +73,13 @@ const syncZenModeToggle = (isEnabled: boolean): void => {
     state.isZenModeEnabled = isEnabled;
     if (elements.zenModeToggle) {
         elements.zenModeToggle.checked = isEnabled;
+    }
+};
+
+const syncAnnotationsToggle = (isEnabled: boolean): void => {
+    state.isAnnotationsEnabled = isEnabled;
+    if (elements.annotationsToggle) {
+        elements.annotationsToggle.checked = isEnabled;
     }
 };
 
@@ -243,6 +252,7 @@ export {
     shouldCloseOnNavigate,
     showToast,
     state,
+    syncAnnotationsToggle,
     syncDeleteHoldToggle,
     syncFlashcardsToggle,
     syncGeminiApiKeyPresence,

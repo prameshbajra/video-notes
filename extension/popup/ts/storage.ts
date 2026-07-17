@@ -1,4 +1,5 @@
 import {
+    ANNOTATIONS_ENABLED_STORAGE_KEY,
     DELETE_HOLD_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
     FLASHCARDS_CACHE_STORAGE_KEY,
@@ -6,6 +7,8 @@ import {
     GEMINI_API_KEY_STORAGE_KEY,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
+    MD_TEMPLATE_VERSION,
+    MD_TEMPLATE_VERSION_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
@@ -14,6 +17,7 @@ import {
 
 const resolveEnabledSetting = (value: unknown): boolean => value !== false;
 const resolveZenModeSetting = (value: unknown): boolean => value === true;
+const resolveAnnotationsEnabledSetting = (value: unknown): boolean => value !== false;
 const resolveFlashcardsEnabledSetting = (value: unknown): boolean => value === true;
 const resolveNewTabFlashcardsEnabledSetting = (value: unknown): boolean => value === true;
 
@@ -30,8 +34,10 @@ const getStorageSnapshot = (): Promise<StorageSnapshot> =>
                 METADATA_STORAGE_KEY,
                 ENABLED_STORAGE_KEY,
                 ZEN_MODE_STORAGE_KEY,
+                ANNOTATIONS_ENABLED_STORAGE_KEY,
                 MD_EXPORT_ENABLED_STORAGE_KEY,
                 MD_TEMPLATE_STORAGE_KEY,
+                MD_TEMPLATE_VERSION_STORAGE_KEY,
                 DELETE_HOLD_ENABLED_STORAGE_KEY,
                 FLASHCARDS_ENABLED_STORAGE_KEY,
                 NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
@@ -102,6 +108,22 @@ const persistZenModeEnabled = (isEnabled: boolean): Promise<void> =>
         });
     });
 
+const persistAnnotationsEnabled = (isEnabled: boolean): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.set({ [ANNOTATIONS_ENABLED_STORAGE_KEY]: isEnabled }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
 const persistMdExportEnabled = (isEnabled: boolean): Promise<void> =>
     new Promise<void>((resolve, reject) => {
         if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
@@ -125,7 +147,10 @@ const persistMdTemplate = (template: string): Promise<void> =>
             return;
         }
 
-        chrome.storage.local.set({ [MD_TEMPLATE_STORAGE_KEY]: template }, () => {
+        chrome.storage.local.set({
+            [MD_TEMPLATE_STORAGE_KEY]: template,
+            [MD_TEMPLATE_VERSION_STORAGE_KEY]: MD_TEMPLATE_VERSION
+        }, () => {
             if (chrome.runtime && chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
                 return;
@@ -248,6 +273,7 @@ const removeFlashcardsCache = (): Promise<void> =>
 
 export {
     getStorageSnapshot,
+    persistAnnotationsEnabled,
     persistBackupPayload,
     persistDeleteHoldEnabled,
     persistFlashcardsCache,
@@ -261,6 +287,7 @@ export {
     removeFlashcardsCache,
     removeGeminiApiKey,
     resolveEnabledSetting,
+    resolveAnnotationsEnabledSetting,
     resolveFlashcardsEnabledSetting,
     resolveNewTabFlashcardsEnabledSetting,
     resolveZenModeSetting

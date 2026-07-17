@@ -1,4 +1,10 @@
 import { PREVIEW_OFFSET, TOOLTIP_OFFSET } from './constants.js';
+import {
+    closeAnnotationEditor,
+    hasAnnotationContent,
+    isAnnotationEditorActive,
+    isAnnotationEditorTarget
+} from './annotations.js';
 import { state, ui } from './state.js';
 import { formatTimestamp, getVideoElement } from './utils.js';
 
@@ -6,23 +12,38 @@ let globalListenersAttached = false;
 let tooltipDismissCleanup: (() => void) | null = null;
 let lastTrackHoverClientX: number | null = null;
 
-const closeTooltip = (): void => {
-    if (!ui.tooltip) {
-        return;
-    }
+const closeTooltip = (options: { resumePlayback?: boolean } = {}): void => {
+    const { resumePlayback = true } = options;
 
-    ui.tooltip.style.display = 'none';
-    ui.tooltip.style.visibility = 'visible';
+    state.captureSessionId += 1;
+    if (ui.tooltip) {
+        ui.tooltip.style.display = 'none';
+        ui.tooltip.style.visibility = 'visible';
+    }
     if (ui.textarea) {
         ui.textarea.value = '';
     }
+    if (ui.saveButton) {
+        ui.saveButton.disabled = false;
+    }
+    closeAnnotationEditor();
     state.tooltipMode = null;
+    state.captureKind = null;
     state.pendingTimestamp = null;
     state.activeNoteId = null;
     state.tooltipAnchor = null;
+    if (ui.errorMessage) {
+        ui.errorMessage.style.display = 'none';
+        ui.errorMessage.textContent = '';
+    }
     hideNotePreview();
     const resumeVideo = state.resumePlaybackVideo;
-    if (resumeVideo && typeof resumeVideo.play === 'function' && resumeVideo.isConnected !== false) {
+    if (
+        resumePlayback &&
+        resumeVideo &&
+        typeof resumeVideo.play === 'function' &&
+        resumeVideo.isConnected !== false
+    ) {
         try {
             const playResult = resumeVideo.play();
             if (playResult && typeof playResult.catch === 'function') {
@@ -32,11 +53,32 @@ const closeTooltip = (): void => {
             // Ignore playback errors caused by browser policies or missing user gesture.
         }
     }
-    state.resumePlaybackVideo = null;
+    state.resumePlaybackVideo = resumePlayback ? null : resumeVideo;
     if (typeof tooltipDismissCleanup === 'function') {
         tooltipDismissCleanup();
         tooltipDismissCleanup = null;
     }
+};
+
+const showTooltipError = (message: string): void => {
+    if (!ui.errorMessage) {
+        return;
+    }
+    ui.errorMessage.textContent = message;
+    ui.errorMessage.style.display = 'block';
+    repositionTooltip();
+};
+
+const syncTooltipAnnotationControls = (note: Note | null = null): void => {
+    if (!ui.annotationActionButton) {
+        return;
+    }
+
+    const canShowAction = state.isAnnotationsEnabled && state.tooltipMode === 'create' && !note;
+    ui.annotationActionButton.style.display = canShowAction ? 'inline-flex' : 'none';
+    ui.annotationActionButton.textContent = 'Add drawing';
+    ui.annotationActionButton.setAttribute('aria-label', 'Create an annotation instead');
+
 };
 
 const resolveAnchor = (
@@ -169,14 +211,32 @@ const positionPreviewTooltip = (): void => {
 };
 
 const showNotePreview = (note: Note, anchor: HTMLElement): void => {
-    if (!ui.previewTooltip || !ui.previewText || !note || !note.text) {
+    const hasPreviewContent = Boolean(note && (note.text || note.annotation));
+    if (!ui.previewTooltip || !ui.previewText || !hasPreviewContent) {
         hideNotePreview();
         return;
     }
 
     state.previewNoteId = note.id;
     state.previewAnchor = anchor;
-    ui.previewText.textContent = note.text;
+    ui.previewText.textContent = '';
+
+    if (note.annotation) {
+        const previewImage = document.createElement('img');
+        previewImage.src = note.annotation.image.dataUrl;
+        previewImage.alt = 'Drawing preview';
+        previewImage.style.display = 'block';
+        previewImage.style.width = '100%';
+        previewImage.style.borderRadius = '8px';
+        previewImage.style.border = '1px solid rgba(255, 255, 255, 0.14)';
+        previewImage.style.backgroundColor = 'rgba(0, 0, 0, 0.35)';
+        previewImage.style.marginBottom = note.text ? '8px' : '0';
+        ui.previewText.appendChild(previewImage);
+    }
+
+    if (note.text) {
+        ui.previewText.appendChild(document.createTextNode(note.text));
+    }
     ui.previewTooltip.style.display = 'block';
     positionPreviewTooltip();
 };
@@ -293,9 +353,19 @@ const attachTooltipDismissListener = (): void => {
             return;
         }
 
+        // A stray click must never silently throw away a sketch; with an
+        // empty canvas the dialog dismisses on outside clicks as it always
+        // did for plain text notes.
+        if (isAnnotationEditorActive() && hasAnnotationContent()) {
+            return;
+        }
+
         const target = event.target;
         if (target instanceof Node) {
             if (ui.tooltip.contains(target)) {
+                return;
+            }
+            if (isAnnotationEditorTarget(target)) {
                 return;
             }
             if (state.tooltipAnchor && state.tooltipAnchor.contains && state.tooltipAnchor.contains(target)) {
@@ -327,7 +397,9 @@ const openTooltip = ({
         return;
     }
 
+    state.captureSessionId += 1;
     state.tooltipMode = mode;
+    state.captureKind = 'text';
     state.pendingTimestamp = timestamp;
     state.activeNoteId = note ? note.id : null;
     let anchorElement = anchor instanceof Element ? anchor : null;
@@ -353,6 +425,14 @@ const openTooltip = ({
     if (ui.deleteButton) {
         ui.deleteButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
     }
+    if (ui.saveButton) {
+        ui.saveButton.disabled = false;
+    }
+    if (ui.errorMessage) {
+        ui.errorMessage.style.display = 'none';
+        ui.errorMessage.textContent = '';
+    }
+    syncTooltipAnnotationControls(note);
 
     hideNotePreview();
     ui.tooltip.style.display = 'flex';
@@ -382,6 +462,8 @@ export {
     hideTrackHoverTooltip,
     openTooltip,
     repositionTooltip,
+    showTooltipError,
     showNotePreview,
+    syncTooltipAnnotationControls,
     updateTrackHoverTooltip
 };

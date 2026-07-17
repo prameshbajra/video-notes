@@ -3,6 +3,7 @@ const state: ExtensionState = {
     videoId: null,
     notes: [],
     tooltipMode: null,
+    captureKind: null,
     activeNoteId: null,
     pendingTimestamp: null,
     tooltipAnchor: null,
@@ -10,12 +11,15 @@ const state: ExtensionState = {
     previewNoteId: null,
     resumePlaybackVideo: null,
     isEnabled: true,
-    isZenModeEnabled: false
+    isZenModeEnabled: false,
+    isAnnotationsEnabled: true,
+    captureSessionId: 0
 };
 
 const ui: UiElements = {
     container: null,
     addButton: null,
+    annotateButton: null,
     zenButton: null,
     shareButton: null,
     track: null,
@@ -25,6 +29,8 @@ const ui: UiElements = {
     cancelButton: null,
     saveButton: null,
     deleteButton: null,
+    annotationActionButton: null,
+    errorMessage: null,
     heading: null,
     timestampLabel: null,
     emptyState: null,

@@ -143,6 +143,32 @@ body {
     border: none;
 }
 
+.annotation-overlay {
+    position: absolute;
+    object-fit: fill;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.annotation-hide-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    padding: 7px 11px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: rgba(18, 18, 18, 0.84);
+    color: #ffffff;
+    font: 600 12px/1.2 var(--sans);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}
+
+.annotation-hide-button:hover {
+    background: rgba(18, 18, 18, 0.96);
+}
+
 .notes-panel {
     background: var(--surface-soft);
     border-radius: 14px;
@@ -240,6 +266,21 @@ body {
     color: var(--muted);
     white-space: pre-line;
     word-break: break-word;
+}
+
+.note-annotation-badge {
+    flex-shrink: 0;
+    margin-left: auto;
+    align-self: center;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--accent, #93b8ff);
+    background: rgba(147, 184, 255, 0.14);
+    border: 1px solid rgba(147, 184, 255, 0.3);
+    border-radius: 999px;
+    padding: 4px 8px;
 }
 
 .notes-empty {

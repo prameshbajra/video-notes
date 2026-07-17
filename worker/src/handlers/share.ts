@@ -1,40 +1,31 @@
 import { generateShareId } from '../utils/id.js';
-import { validatePayload } from '../utils/validation.js';
-
-interface Env {
-    SHARES: KVNamespace;
-}
+import { readBoundedRequestText, validatePayload } from '../utils/validation.js';
 
 const SHARE_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
-const RATE_LIMIT_WINDOW = 60; // 1 minute
-const RATE_LIMIT_MAX = 10; // max creates per window
-const VIEWER_BASE_URL = 'https://ed8dd064.static-video-notes.pages.dev/';
-
-const checkRateLimit = async (ip: string, kv: KVNamespace): Promise<boolean> => {
-    const key = `ratelimit:${ip}`;
-    const current = await kv.get(key);
-    const count = current ? parseInt(current, 10) : 0;
-
-    if (count >= RATE_LIMIT_MAX) {
-        return false;
-    }
-
-    await kv.put(key, String(count + 1), { expirationTtl: RATE_LIMIT_WINDOW });
-    return true;
-};
+const VIEWER_BASE_URL = 'https://static-video-notes.pages.dev/';
 
 export const handleCreateShare = async (request: Request, env: Env): Promise<Response> => {
     const ip = request.headers.get('cf-connecting-ip') || 'unknown';
 
-    const allowed = await checkRateLimit(ip, env.SHARES);
-    if (!allowed) {
+    const rateLimit = await env.SHARE_RATE_LIMITER.limit({ key: ip });
+    if (!rateLimit.success) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in a minute.' }), {
             status: 429,
             headers: { 'Content-Type': 'application/json', 'Retry-After': '60' }
         });
     }
 
-    const rawText = await request.text();
+    let rawText: string;
+    try {
+        rawText = await readBoundedRequestText(request);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to read payload';
+        const status = message === 'Payload too large' ? 413 : 400;
+        return new Response(JSON.stringify({ error: message }), {
+            status,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 
     let body: unknown;
     try {

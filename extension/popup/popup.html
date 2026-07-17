@@ -52,6 +52,13 @@
                     </label>
                     <label class="toggle">
                         <div class="toggle__text">
+                            <span class="toggle__title">Drawing annotations</span>
+                            <span class="toggle__description">Show the Annotate button and Alt/Option + A shortcut. Existing drawings remain available.</span>
+                        </div>
+                        <input id="annotations-toggle" class="toggle__input" type="checkbox" checked />
+                    </label>
+                    <label class="toggle">
+                        <div class="toggle__text">
                             <span class="toggle__title">Hold to confirm deletion</span>
                             <span class="toggle__description">Require holding delete buttons for 2 seconds to confirm deletion.</span>
                         </div>
@@ -139,9 +146,10 @@
                         <label for="md-template-textarea" style="display: block; margin-bottom: 8px; font-weight: 600;">Markdown Template</label>
                         <textarea id="md-template-textarea" class="template-textarea" rows="5">[*video-title*](*youtube-url*)
 
-- *time-url*: *note*</textarea>
+- *time-url*: *note*
+*annotation-image*</textarea>
                         <p style="margin-top: 8px; margin-bottom: 0; color: var(--muted); font-size: 12px;">
-                            Placeholders: <code>*video-title*</code>, <code>*youtube-url*</code>, <code>*time*</code>, <code>*time-url*</code>, <code>*note*</code>
+                            Placeholders: <code>*video-title*</code>, <code>*youtube-url*</code>, <code>*time*</code>, <code>*time-url*</code>, <code>*note*</code>, <code>*annotation-image*</code>
                         </p>
                     </div>
                 </div>

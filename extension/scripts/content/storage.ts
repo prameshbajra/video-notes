@@ -1,4 +1,5 @@
 import {
+    ANNOTATIONS_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NOTES_STORAGE_KEY,
@@ -7,6 +8,7 @@ import {
 
 const resolveEnabledSetting = (value: unknown): boolean => value !== false;
 const resolveZenModeSetting = (value: unknown): boolean => value === true;
+const resolveAnnotationsEnabledSetting = (value: unknown): boolean => value !== false;
 
 const getStorageArea = (): chrome.storage.LocalStorageArea | null => {
     const hasRuntime =
@@ -59,6 +61,27 @@ const getZenModeSetting = (): Promise<boolean> => {
     });
 };
 
+const getAnnotationsEnabledSetting = (): Promise<boolean> => {
+    const storage = getStorageArea();
+    if (!storage) {
+        return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+        try {
+            storage.get([ANNOTATIONS_ENABLED_STORAGE_KEY], (result) => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    resolve(true);
+                    return;
+                }
+                resolve(resolveAnnotationsEnabledSetting(result[ANNOTATIONS_ENABLED_STORAGE_KEY]));
+            });
+        } catch {
+            resolve(true);
+        }
+    });
+};
+
 const persistZenModeSetting = (isEnabled: boolean): Promise<void> => {
     const storage = getStorageArea();
     if (!storage) {
@@ -104,13 +127,18 @@ const saveStoredNotes = (payload: NotesIndex): Promise<void> => {
         return Promise.resolve();
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         try {
             storage.set({ [NOTES_STORAGE_KEY]: payload }, () => {
+                const runtimeError = chrome.runtime?.lastError;
+                if (runtimeError) {
+                    reject(new Error(runtimeError.message || 'Unable to save notes'));
+                    return;
+                }
                 resolve(undefined);
             });
-        } catch {
-            resolve(undefined);
+        } catch (error) {
+            reject(error instanceof Error ? error : new Error('Unable to save notes'));
         }
     });
 };
@@ -204,6 +232,67 @@ const getVideoTitleText = (): string => {
     return documentTitle.trim() || 'Untitled video';
 };
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const normalizeAnnotationImage = (value: unknown): NoteAnnotationImage | null => {
+    if (!isPlainObject(value)) {
+        return null;
+    }
+
+    const dataUrl = typeof value.dataUrl === 'string' ? value.dataUrl : '';
+    const width = Number(value.width);
+    const height = Number(value.height);
+    const generatedAt = Number(value.generatedAt);
+
+    if (!dataUrl.startsWith('data:image/png;base64,')) {
+        return null;
+    }
+
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return null;
+    }
+
+    if (!Number.isFinite(generatedAt) || generatedAt <= 0) {
+        return null;
+    }
+
+    return { dataUrl, width, height, generatedAt };
+};
+
+const normalizeAnnotationViewport = (value: unknown): NoteAnnotationViewport | null => {
+    if (!isPlainObject(value)) {
+        return null;
+    }
+
+    const width = Number(value.width);
+    const height = Number(value.height);
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return null;
+    }
+
+    return { width, height };
+};
+
+const normalizeAnnotation = (value: unknown): NoteAnnotation | undefined => {
+    if (!isPlainObject(value) || value.version !== 1 || !isPlainObject(value.scene)) {
+        return undefined;
+    }
+
+    const image = normalizeAnnotationImage(value.image);
+    const viewport = normalizeAnnotationViewport(value.viewport);
+    if (!image || !viewport) {
+        return undefined;
+    }
+
+    return {
+        version: 1,
+        scene: { ...value.scene },
+        image,
+        viewport
+    };
+};
+
 const loadNotesForVideo = async (videoId: string): Promise<Note[]> => {
     if (!videoId) {
         return [];
@@ -228,13 +317,20 @@ const loadNotesForVideo = async (videoId: string): Promise<Note[]> => {
                     ? note.id
                     : `${videoId}-${index}-${timestamp}`;
 
-            return {
+            const normalizedNote: Note = {
                 id,
                 timestamp,
                 text,
                 createdAt,
                 updatedAt
             };
+
+            const annotation = normalizeAnnotation(note.annotation);
+            if (annotation) {
+                normalizedNote.annotation = annotation;
+            }
+
+            return normalizedNote;
         })
         .filter((note): note is Note => Boolean(note))
         .sort((a, b) => a.timestamp - b.timestamp);
@@ -251,17 +347,18 @@ const persistNotesForVideo = async (videoId: string, notes: Note[]): Promise<voi
     await saveStoredNotes(allNotes);
 
     if (!Array.isArray(notes) || notes.length === 0) {
-        await persistVideoMetadata(videoId, null);
+        await persistVideoMetadata(videoId, null).catch(() => {});
         return;
     }
 
     await persistVideoMetadata(videoId, {
         title: getVideoTitleText(),
         noteCount: notes.length
-    });
+    }).catch(() => {});
 };
 
 export {
+    getAnnotationsEnabledSetting,
     getNotesEnabledSetting,
     getVideoTitleText,
     getZenModeSetting,
@@ -269,6 +366,7 @@ export {
     persistNotesForVideo,
     persistVideoMetadata,
     persistZenModeSetting,
+    resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
     resolveZenModeSetting
 };

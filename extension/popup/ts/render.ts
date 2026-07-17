@@ -396,7 +396,7 @@ const render = (handlers: RenderHandlers): void => {
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'note-button__text';
-                textSpan.textContent = note.text;
+                textSpan.textContent = note.displayText;
 
                 const noteDeleteButton = createDeleteButtonWithHold(
                     () => handlers.onDeleteNote(video.videoId, note.dedupKey),
@@ -405,6 +405,15 @@ const render = (handlers: RenderHandlers): void => {
                 noteDeleteButton.classList.add('note-delete-button');
 
                 noteButton.append(timestampSpan, textSpan);
+
+                if (note.annotation) {
+                    const annotationBadge = document.createElement('span');
+                    annotationBadge.className = 'note-annotation-badge';
+                    annotationBadge.textContent = 'Drawing';
+                    annotationBadge.title = 'This note includes a drawing on the video';
+                    noteButton.appendChild(annotationBadge);
+                }
+
                 noteItem.append(noteButton, noteDeleteButton);
                 notesList.appendChild(noteItem);
             });

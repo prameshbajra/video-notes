@@ -15,13 +15,23 @@ chrome.runtime.onMessage.addListener(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(message.payload)
         })
-            .then((res) => {
+            .then(async (res) => {
                 if (!res.ok) {
-                    return res.json().then((body: { error?: string }) => {
-                        throw new Error(body.error || `HTTP ${res.status}`);
-                    });
+                    const rawBody = await res.text();
+                    let message = `HTTP ${res.status}`;
+                    try {
+                        const body = JSON.parse(rawBody) as { error?: unknown };
+                        if (typeof body.error === 'string' && body.error.trim()) {
+                            message = body.error;
+                        }
+                    } catch {
+                        if (rawBody.trim()) {
+                            message = rawBody.trim().slice(0, 200);
+                        }
+                    }
+                    throw new Error(message);
                 }
-                return res.json();
+                return res.json() as Promise<{ id: string; url: string }>;
             })
             .then((data: { id: string; url: string }) => {
                 sendResponse({ success: true, id: data.id, url: data.url });

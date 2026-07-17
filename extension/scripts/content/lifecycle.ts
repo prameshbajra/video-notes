@@ -1,4 +1,5 @@
 import {
+    ANNOTATIONS_ENABLED_STORAGE_KEY,
     CONTAINER_ID,
     ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
@@ -7,6 +8,7 @@ import {
     ZEN_MODE_STORAGE_KEY,
     ZEN_MODE_STYLE_ID
 } from './constants.js';
+import { resizeCanvasToOverlay } from './annotations.js';
 import { createContainer } from './ui.js';
 import {
     applyThemeToUi,
@@ -19,6 +21,8 @@ import { state, themeState, ui } from './state.js';
 import {
     attachShortcutListener,
     handleAddButtonClick,
+    handleAnnotateButtonClick,
+    handleAnnotationActionClick,
     handleDelete,
     handleSave,
     handleTooltipKeydown,
@@ -29,15 +33,22 @@ import {
     setEnsureUiReady
 } from './notes.js';
 import { handleShareButtonClick, updateShareButtonVisibility } from './share.js';
-import { attachResponsiveListeners, closeTooltip, hideNotePreview } from './tooltip.js';
+import {
+    attachResponsiveListeners,
+    closeTooltip,
+    hideNotePreview,
+    syncTooltipAnnotationControls
+} from './tooltip.js';
 import { getVideoElement, getVideoIdFromLocation } from './utils.js';
 import {
+    getAnnotationsEnabledSetting,
     getNotesEnabledSetting,
     getVideoTitleText,
     getZenModeSetting,
     loadNotesForVideo,
     persistVideoMetadata,
     persistZenModeSetting,
+    resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
     resolveZenModeSetting
 } from './storage.js';
@@ -207,20 +218,52 @@ const handleZenButtonClick = (): void => {
     updateZenModeSetting(!state.isZenModeEnabled).catch(() => {});
 };
 
+const applyAnnotationsEnabledState = (isEnabled: boolean): void => {
+    state.isAnnotationsEnabled = isEnabled;
+    if (ui.annotateButton) {
+        ui.annotateButton.style.display = isEnabled ? 'inline-flex' : 'none';
+    }
+    if (ui.tooltip?.style.display === 'flex') {
+        syncTooltipAnnotationControls();
+    }
+};
+
 const attachUiListeners = (): void => {
-    const { addButton, zenButton, tooltip, cancelButton, saveButton, deleteButton, track } = ui;
-    if (!addButton || !zenButton || !tooltip || !cancelButton || !saveButton || !deleteButton || !track) {
+    const {
+        addButton,
+        annotateButton,
+        annotationActionButton,
+        zenButton,
+        tooltip,
+        cancelButton,
+        saveButton,
+        deleteButton,
+        track
+    } = ui;
+    if (
+        !addButton ||
+        !annotateButton ||
+        !annotationActionButton ||
+        !zenButton ||
+        !tooltip ||
+        !cancelButton ||
+        !saveButton ||
+        !deleteButton ||
+        !track
+    ) {
         return;
     }
 
     addButton.addEventListener('click', handleAddButtonClick);
+    annotateButton.addEventListener('click', handleAnnotateButtonClick);
+    annotationActionButton.addEventListener('click', handleAnnotationActionClick);
     zenButton.addEventListener('click', handleZenButtonClick);
     if (ui.shareButton) {
         ui.shareButton.addEventListener('click', () => {
             handleShareButtonClick().catch(() => {});
         });
     }
-    cancelButton.addEventListener('click', closeTooltip);
+    cancelButton.addEventListener('click', () => closeTooltip());
     saveButton.addEventListener('click', handleSave);
     deleteButton.addEventListener('click', handleDelete);
     tooltip.addEventListener('keydown', handleTooltipKeydown);
@@ -242,6 +285,7 @@ const detachVideoListeners = (): void => {
 
 const handleVideoMetadata = (): void => {
     renderNotesTrack();
+    resizeCanvasToOverlay();
 };
 
 const assignVideoElement = (): HTMLVideoElement | null => {
@@ -338,6 +382,7 @@ const insertContainer = (): boolean => {
     const elements = createContainer(palette);
     ui.container = elements.container;
     ui.addButton = elements.addButton;
+    ui.annotateButton = elements.annotateButton;
     ui.zenButton = elements.zenButton;
     ui.shareButton = elements.shareButton;
     ui.track = elements.track;
@@ -348,6 +393,8 @@ const insertContainer = (): boolean => {
     ui.timestampLabel = elements.timestampLabel;
     ui.textarea = elements.textarea;
     ui.deleteButton = elements.deleteButton;
+    ui.annotationActionButton = elements.annotationActionButton;
+    ui.errorMessage = elements.errorMessage;
     ui.cancelButton = elements.cancelButton;
     ui.saveButton = elements.saveButton;
     ui.previewTooltip = elements.previewTooltip;
@@ -360,6 +407,7 @@ const insertContainer = (): boolean => {
 
     metadataContainer.insertBefore(elements.container, titleContainer);
     applyThemeToUi(palette);
+    applyAnnotationsEnabledState(state.isAnnotationsEnabled);
     attachUiListeners();
     return true;
 };
@@ -401,6 +449,7 @@ const teardownUi = (): void => {
 
     ui.container = null;
     ui.addButton = null;
+    ui.annotateButton = null;
     ui.zenButton = null;
     ui.shareButton = null;
     ui.track = null;
@@ -408,6 +457,8 @@ const teardownUi = (): void => {
     ui.tooltip = null;
     ui.textarea = null;
     ui.deleteButton = null;
+    ui.annotationActionButton = null;
+    ui.errorMessage = null;
     ui.cancelButton = null;
     ui.saveButton = null;
     ui.heading = null;
@@ -421,6 +472,7 @@ const teardownUi = (): void => {
     state.videoId = null;
     state.notes = [];
     state.tooltipMode = null;
+    state.captureKind = null;
     state.activeNoteId = null;
     state.pendingTimestamp = null;
     state.tooltipAnchor = null;
@@ -499,6 +551,13 @@ const handleStorageChange = (
         applyZenModeState(nextZenMode);
     }
 
+    if (changes[ANNOTATIONS_ENABLED_STORAGE_KEY]) {
+        const nextAnnotationsEnabled = resolveAnnotationsEnabledSetting(
+            changes[ANNOTATIONS_ENABLED_STORAGE_KEY].newValue
+        );
+        applyAnnotationsEnabledState(nextAnnotationsEnabled);
+    }
+
     if (!state.isEnabled) {
         return;
     }
@@ -535,8 +594,13 @@ const initialize = async (): Promise<void> => {
     watchThemeChanges();
     handleThemeChange();
 
-    const [isEnabled, isZenModeEnabled] = await Promise.all([getNotesEnabledSetting(), getZenModeSetting()]);
+    const [isEnabled, isZenModeEnabled, isAnnotationsEnabled] = await Promise.all([
+        getNotesEnabledSetting(),
+        getZenModeSetting(),
+        getAnnotationsEnabledSetting()
+    ]);
     applyZenModeState(isZenModeEnabled);
+    applyAnnotationsEnabledState(isAnnotationsEnabled);
     applyEnabledState(isEnabled);
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {

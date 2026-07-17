@@ -4,20 +4,68 @@ interface Note {
     text: string;
     createdAt: number;
     updatedAt: number;
+    annotation?: NoteAnnotation;
 }
 
 interface StoredNote extends Partial<Note> {
     [key: string]: unknown;
 }
 
+interface NoteAnnotationImage {
+    dataUrl: string;
+    width: number;
+    height: number;
+    generatedAt: number;
+}
+
+interface NoteAnnotationViewport {
+    width: number;
+    height: number;
+}
+
+interface NoteAnnotation {
+    version: 1;
+    scene: Record<string, unknown>;
+    image: NoteAnnotationImage;
+    viewport: NoteAnnotationViewport;
+}
+
+interface AnnotationEditorHost {
+    state: ExtensionState;
+    ui: UiElements;
+    getPalette: () => ThemePalette;
+    onDone: () => void;
+    onCancel: () => void;
+    onDelete: () => void;
+}
+
+interface AnnotationEditorApi {
+    open(annotation: NoteAnnotation | null): boolean;
+    close(): void;
+    isActive(): boolean;
+    isTarget(target: EventTarget | null): boolean;
+    resize(): void;
+    hasContent(): boolean;
+    getCurrentAnnotation(): NoteAnnotation | null | undefined;
+    showError(message: string): void;
+}
+
+interface SharedNoteAnnotation {
+    version: 1;
+    image: NoteAnnotationImage;
+    viewport: NoteAnnotationViewport;
+}
+
 interface NormalizedNote {
     id: string;
     text: string;
+    displayText: string;
     textLower: string;
     timestamp: number;
     formattedTimestamp: string;
     updatedAt: number;
     dedupKey: string;
+    annotation?: SharedNoteAnnotation;
 }
 
 type NotesIndex<T extends StoredNote = StoredNote> = Record<string, T[]>;
@@ -76,10 +124,12 @@ interface ThemeState {
 }
 
 type TooltipMode = 'create' | 'edit' | null;
+type CaptureKind = 'text' | 'annotation' | null;
 
 interface UiElements {
     container: HTMLDivElement | null;
     addButton: HTMLButtonElement | null;
+    annotateButton: HTMLButtonElement | null;
     zenButton: HTMLButtonElement | null;
     shareButton: HTMLButtonElement | null;
     track: HTMLDivElement | null;
@@ -89,6 +139,8 @@ interface UiElements {
     cancelButton: HTMLButtonElement | null;
     saveButton: HTMLButtonElement | null;
     deleteButton: HTMLButtonElement | null;
+    annotationActionButton: HTMLButtonElement | null;
+    errorMessage: HTMLParagraphElement | null;
     heading: HTMLSpanElement | null;
     timestampLabel: HTMLSpanElement | null;
     emptyState: HTMLSpanElement | null;
@@ -102,6 +154,7 @@ interface ExtensionState {
     videoId: string | null;
     notes: Note[];
     tooltipMode: TooltipMode;
+    captureKind: CaptureKind;
     activeNoteId: string | null;
     pendingTimestamp: number | null;
     tooltipAnchor: HTMLElement | null;
@@ -110,6 +163,8 @@ interface ExtensionState {
     resumePlaybackVideo: HTMLVideoElement | null;
     isEnabled: boolean;
     isZenModeEnabled: boolean;
+    isAnnotationsEnabled: boolean;
+    captureSessionId: number;
 }
 
 type ViewName = 'notes' | 'settings';
@@ -172,6 +227,7 @@ interface PopupState {
     activeView: ViewName;
     isNotesEnabled: boolean;
     isZenModeEnabled: boolean;
+    isAnnotationsEnabled: boolean;
     isMdExportEnabled: boolean;
     mdTemplate: string;
     isDeleteHoldEnabled: boolean;
@@ -197,6 +253,7 @@ interface PopupElements {
     settingsMessage: HTMLParagraphElement | null;
     enableToggle: HTMLInputElement | null;
     zenModeToggle: HTMLInputElement | null;
+    annotationsToggle: HTMLInputElement | null;
     mdExportToggle: HTMLInputElement | null;
     mdTemplateTextarea: HTMLTextAreaElement | null;
     deleteHoldToggle: HTMLInputElement | null;

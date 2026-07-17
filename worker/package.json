@@ -4,11 +4,14 @@
     "private": true,
     "scripts": {
         "typecheck": "tsc --noEmit -p tsconfig.json",
+        "types": "wrangler types src/env.d.ts --include-runtime false",
+        "types:check": "wrangler types src/env.d.ts --include-runtime false --check",
         "dev": "wrangler dev",
         "deploy": "wrangler deploy"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "^4.20241205.0",
-        "wrangler": "^3.99.0"
+        "@cloudflare/workers-types": "^5.20260712.1",
+        "@types/node": "^24.0.0",
+        "wrangler": "^4.110.0"
     }
 }

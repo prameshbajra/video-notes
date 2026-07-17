@@ -1,11 +1,15 @@
 import {
+    ANNOTATIONS_ENABLED_STORAGE_KEY,
     DEFAULT_MD_TEMPLATE,
     DELETE_HOLD_ENABLED_STORAGE_KEY,
     ENABLED_STORAGE_KEY,
     FLASHCARDS_ENABLED_STORAGE_KEY,
     GEMINI_API_KEY_STORAGE_KEY,
+    LEGACY_DEFAULT_MD_TEMPLATE,
     MD_EXPORT_ENABLED_STORAGE_KEY,
     MD_TEMPLATE_STORAGE_KEY,
+    MD_TEMPLATE_VERSION,
+    MD_TEMPLATE_VERSION_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NOTE_RENDER_BATCH_SIZE,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
@@ -32,7 +36,8 @@ import {
     syncNewTabFlashcardsToggle,
     syncNotesToggle,
     syncViewVisibility,
-    syncZenModeToggle
+    syncZenModeToggle,
+    syncAnnotationsToggle
 } from './state.js';
 import {
     getNoteDedupKey,
@@ -47,6 +52,7 @@ import { generateMarkdownFromVideo } from './markdown.js';
 import { render, type RenderHandlers } from './render.js';
 import {
     getStorageSnapshot,
+    persistAnnotationsEnabled,
     persistBackupPayload,
     persistDeleteHoldEnabled,
     persistFlashcardsEnabled,
@@ -58,6 +64,7 @@ import {
     persistZenModeEnabled,
     removeFlashcardsCache,
     removeGeminiApiKey,
+    resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
     resolveFlashcardsEnabledSetting,
     resolveNewTabFlashcardsEnabledSetting,
@@ -65,6 +72,7 @@ import {
 } from './storage.js';
 import { getOrGenerateDeck } from './flashcard-deck.js';
 import { refreshFlashcardsPanel } from './flashcards.js';
+import { assertSharePayloadIsValid, getShareFailureMessage } from '../../share-payload.js';
 
 let templateDebounceTimer: number | null = null;
 let searchDebounceTimer: number | null = null;
@@ -173,6 +181,12 @@ const handleZenToggleChange = (event: Event): void => {
     updateZenModeEnabled(isEnabled).catch(() => {});
 };
 
+const handleAnnotationsToggleChange = (event: Event): void => {
+    const target = event.target as HTMLInputElement | null;
+    const isEnabled = Boolean(target?.checked);
+    updateAnnotationsEnabled(isEnabled).catch(() => {});
+};
+
 const handleMdExportToggleChange = (event: Event): void => {
     const target = event.target as HTMLInputElement | null;
     const isEnabled = Boolean(target?.checked);
@@ -255,6 +269,12 @@ const loadZenModeFromStorage = async (): Promise<void> => {
     syncZenModeToggle(isZenModeEnabled);
 };
 
+const loadAnnotationsEnabledFromStorage = async (): Promise<void> => {
+    const snapshot = await getStorageSnapshot();
+    const isAnnotationsEnabled = resolveAnnotationsEnabledSetting(snapshot[ANNOTATIONS_ENABLED_STORAGE_KEY]);
+    syncAnnotationsToggle(isAnnotationsEnabled);
+};
+
 const loadMdExportEnabledFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
     const isMdExportEnabled = resolveEnabledSetting(snapshot[MD_EXPORT_ENABLED_STORAGE_KEY]);
@@ -263,11 +283,20 @@ const loadMdExportEnabledFromStorage = async (): Promise<void> => {
 
 const loadMdTemplateFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
-    const template =
+    const storedTemplate =
         typeof snapshot[MD_TEMPLATE_STORAGE_KEY] === 'string' && snapshot[MD_TEMPLATE_STORAGE_KEY].trim()
             ? (snapshot[MD_TEMPLATE_STORAGE_KEY] as string)
             : DEFAULT_MD_TEMPLATE;
+    const storedVersion = Number(snapshot[MD_TEMPLATE_VERSION_STORAGE_KEY]);
+    const template = storedTemplate === LEGACY_DEFAULT_MD_TEMPLATE
+        ? DEFAULT_MD_TEMPLATE
+        : storedTemplate;
+
     syncMdTemplate(template);
+
+    if (storedVersion !== MD_TEMPLATE_VERSION || template !== storedTemplate) {
+        await persistMdTemplate(template);
+    }
 };
 
 const loadDeleteHoldEnabledFromStorage = async (): Promise<void> => {
@@ -312,6 +341,18 @@ const updateZenModeEnabled = async (isEnabled: boolean): Promise<void> => {
     } catch {
         syncZenModeToggle(previousValue);
         setSettingsMessage('Unable to update Zen Mode.', 'error');
+    }
+};
+
+const updateAnnotationsEnabled = async (isEnabled: boolean): Promise<void> => {
+    const previousValue = state.isAnnotationsEnabled;
+    syncAnnotationsToggle(isEnabled);
+
+    try {
+        await persistAnnotationsEnabled(isEnabled);
+    } catch {
+        syncAnnotationsToggle(previousValue);
+        setSettingsMessage('Unable to update annotations.', 'error');
     }
 };
 
@@ -586,11 +627,22 @@ const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
         const payload = {
             videoId: video.videoId,
             title: video.title,
-            notes: video.notes.map((n) => ({
-                timestamp: n.timestamp,
-                text: n.text
-            }))
+            notes: video.notes.map((n) => {
+                const notePayload: {
+                    timestamp: number;
+                    text: string;
+                    annotation?: SharedNoteAnnotation;
+                } = {
+                    timestamp: n.timestamp,
+                    text: n.text
+                };
+                if (n.annotation) {
+                    notePayload.annotation = n.annotation;
+                }
+                return notePayload;
+            })
         };
+        assertSharePayloadIsValid(payload);
 
         const data = await new Promise<{ url: string }>((resolve, reject) => {
             chrome.runtime.sendMessage(
@@ -613,8 +665,8 @@ const shareVideoNotes = async (video: VideoListItem): Promise<void> => {
         state.sharedUrls.set(video.videoId, data.url);
         showToast('Share link copied to clipboard!', 'success');
         render(renderHandlers);
-    } catch {
-        showToast('Failed to create share link. Please try again.', 'error');
+    } catch (error) {
+        showToast(getShareFailureMessage(error), 'error');
     }
 };
 
@@ -679,6 +731,13 @@ const storageChangeHandler = (changes: Record<string, chrome.storage.StorageChan
     if (changes[ZEN_MODE_STORAGE_KEY]) {
         const nextZenMode = resolveZenModeSetting(changes[ZEN_MODE_STORAGE_KEY].newValue);
         syncZenModeToggle(nextZenMode);
+    }
+
+    if (changes[ANNOTATIONS_ENABLED_STORAGE_KEY]) {
+        const nextAnnotationsEnabled = resolveAnnotationsEnabledSetting(
+            changes[ANNOTATIONS_ENABLED_STORAGE_KEY].newValue
+        );
+        syncAnnotationsToggle(nextAnnotationsEnabled);
     }
 
     if (changes[MD_EXPORT_ENABLED_STORAGE_KEY]) {
@@ -760,6 +819,9 @@ const initialize = (): void => {
     loadZenModeFromStorage().catch(() => {
         syncZenModeToggle(false);
     });
+    loadAnnotationsEnabledFromStorage().catch(() => {
+        syncAnnotationsToggle(true);
+    });
     loadMdExportEnabledFromStorage().catch(() => {
         syncMdExportToggle(false);
     });
@@ -813,6 +875,10 @@ const initialize = (): void => {
 
     if (elements.zenModeToggle) {
         elements.zenModeToggle.addEventListener('change', handleZenToggleChange);
+    }
+
+    if (elements.annotationsToggle) {
+        elements.annotationsToggle.addEventListener('change', handleAnnotationsToggleChange);
     }
 
     if (elements.mdExportToggle) {

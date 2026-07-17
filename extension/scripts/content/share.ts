@@ -1,8 +1,27 @@
 import { state, ui } from './state.js';
 import { getVideoTitleText } from './storage.js';
 import { applyStyles } from './utils.js';
+import { assertSharePayloadIsValid, getShareFailureMessage } from '../../share-payload.js';
 
-const buildSharePayload = (): { videoId: string; title: string; notes: { timestamp: number; text: string }[] } | null => {
+interface SharePayloadNote {
+    timestamp: number;
+    text: string;
+    annotation?: SharedNoteAnnotation;
+}
+
+const getSharedAnnotation = (annotation: NoteAnnotation | undefined): SharedNoteAnnotation | undefined => {
+    if (!annotation) {
+        return undefined;
+    }
+
+    return {
+        version: 1,
+        image: annotation.image,
+        viewport: annotation.viewport
+    };
+};
+
+const buildSharePayload = (): { videoId: string; title: string; notes: SharePayloadNote[] } | null => {
     if (!state.videoId || state.notes.length === 0) {
         return null;
     }
@@ -10,10 +29,17 @@ const buildSharePayload = (): { videoId: string; title: string; notes: { timesta
     return {
         videoId: state.videoId,
         title: getVideoTitleText(),
-        notes: state.notes.map((n) => ({
-            timestamp: n.timestamp,
-            text: n.text
-        }))
+        notes: state.notes.map((n) => {
+            const payloadNote: SharePayloadNote = {
+                timestamp: n.timestamp,
+                text: n.text
+            };
+            const annotation = getSharedAnnotation(n.annotation);
+            if (annotation) {
+                payloadNote.annotation = annotation;
+            }
+            return payloadNote;
+        })
     };
 };
 
@@ -55,8 +81,11 @@ const copyToClipboard = async (text: string): Promise<void> => {
     textarea.style.opacity = '0';
     document.body.appendChild(textarea);
     textarea.select();
-    document.execCommand('copy');
+    const copied = document.execCommand('copy');
     document.body.removeChild(textarea);
+    if (!copied) {
+        throw new Error('Clipboard copy failed');
+    }
 };
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -124,11 +153,12 @@ const handleShareButtonClick = async (): Promise<void> => {
     }
 
     try {
+        assertSharePayloadIsValid(payload);
         const result = await sendShareRequest(payload);
         await copyToClipboard(result.url);
         showToast('Share link copied to clipboard!');
-    } catch {
-        showToast('Failed to create share link. Please try again.', true);
+    } catch (error) {
+        showToast(getShareFailureMessage(error), true);
     } finally {
         if (shareButton) {
             shareButton.textContent = 'Share';
