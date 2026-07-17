@@ -6,15 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Video Notes for YouTube</title>
     <meta name="description"
-        content="Video Notes is a Chrome extension that anchors timestamped notes to the exact second of any YouTube video. Capture in flow, search across every video, share with one click, and turn your notes into flashcards on every new tab." />
+        content="Video Notes is a Chrome extension for timestamped notes and visual annotations on YouTube. Capture in flow, draw on exact frames, search every video, share with one click, and turn notes into flashcards." />
     <meta name="keywords"
-        content="YouTube notes, timestamped notes, Chrome extension, productivity, inline workspace, flash cards" />
+        content="YouTube notes, visual annotations, timestamped notes, draw on YouTube videos, Chrome extension, productivity, inline workspace, flash cards" />
     <meta name="author" content="Pramesh Bajracharya" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://prameshbajra.github.io/video-notes/" />
     <meta property="og:title" content="Video Notes for YouTube" />
     <meta property="og:description"
-        content="A small Chrome extension that anchors your thoughts to the exact second of the video that produced them. Press a key, write, return at will." />
+        content="Take timestamped notes and draw directly on YouTube frames. Every thought and annotation stays anchored to the exact moment that produced it." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://prameshbajra.github.io/video-notes/" />
     <meta property="og:site_name" content="Video Notes" />
@@ -26,7 +26,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Video Notes for YouTube" />
     <meta name="twitter:description"
-        content="Take timestamped notes inside YouTube, organize everything offline, and search from a popup dashboard." />
+        content="Take timestamped notes, draw on exact YouTube frames, organize everything offline, and search from a popup dashboard." />
     <meta name="twitter:image:alt" content="Video Notes inline workspace preview over a mock YouTube player" />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/png" sizes="16x16" href="extension/icons/icon-16.png" />
@@ -44,7 +44,7 @@
         "name": "Video Notes for YouTube",
         "operatingSystem": "Chrome, Brave, Edge, Firefox",
         "applicationCategory": "ProductivityApplication",
-        "description": "Video Notes anchors timestamped notes to YouTube videos with a one-key shortcut, a searchable popup index, shareable read-only links, and Gemini-powered flashcards on every new tab.",
+        "description": "Video Notes anchors timestamped notes and visual annotations to exact moments in YouTube videos, with keyboard shortcuts, a searchable popup index, shareable read-only links, and Gemini-powered flashcards on every new tab.",
         "url": "https://prameshbajra.github.io/video-notes/",
         "creator": { "@type": "Person", "name": "Pramesh Bajracharya" },
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -61,6 +61,7 @@
             </a>
             <nav class="nav-links" id="primary-nav" aria-label="Primary navigation">
                 <a href="#capture">Capture</a>
+                <a href="#annotations">Annotate</a>
                 <a href="#timeline">Timeline</a>
                 <a href="#popup">Popup</a>
                 <a href="#flashcards">Flashcards</a>
@@ -81,7 +82,7 @@
             <div class="hero-copy">
                 <p class="eyebrow eyebrow-lg">Video Notes</p>
                 <h1 class="display h1">Remember every insight, without leaving <span class="accent-text">YouTube</span>.</h1>
-                <p class="lead">A small Chrome extension that anchors your thoughts to the exact second of the video that produced them. <em>Press a key, write, return at will.</em></p>
+                <p class="lead">A small Chrome extension that anchors your thoughts to the exact second of the video that produced them. <em>Press a key, write or draw, return at will.</em></p>
                 <div class="hero-actions">
                     <a class="btn btn--filled" data-install href="https://chromewebstore.google.com/detail/video-notes/phgnkidiglnijkpmmdjcgdkekfoelcom" rel="noreferrer noopener">Add to <span data-browser-name>Chrome</span> &nbsp;›</a>
                     <a class="btn btn--outline" href="https://youtu.be/rOi7xQ8DLpo?si=OpWF5CIDSqxy5SQ4" target="_blank" rel="noreferrer noopener">See it in action  &nbsp;›</a>
@@ -207,6 +208,53 @@
                             <button class="capture-save">Save note</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISUAL ANNOTATIONS -->
+        <section id="annotations" class="section--soft annotations">
+            <div class="section-inner">
+                <div class="annotation-copy">
+                    <p class="eyebrow">Visual annotations</p>
+                    <h2 class="display h2">Some moments need<br />a <em class="accent">drawing.</em></h2>
+                    <p class="lead">Pause on any frame and annotate directly over the video. Circle the detail, trace the path, label the idea — then save it to that exact timestamp.</p>
+                    <div class="annotation-shortcut" aria-label="Annotation keyboard shortcut: Option A on macOS or Alt A on Windows">
+                        <span class="kbd kbd--light">⌥</span>
+                        <span class="kbd kbd--light">A</span>
+                        <span>on macOS</span>
+                        <span class="annotation-shortcut-separator" aria-hidden="true">·</span>
+                        <span class="kbd kbd--light">Alt</span>
+                        <span class="kbd kbd--light">A</span>
+                        <span>on Windows</span>
+                    </div>
+                </div>
+
+                <figure class="annotation-figure">
+                    <div class="annotation-shot">
+                        <img src="docs/media/annotations/1-draw-on-the-video.png"
+                            width="3200" height="1800" loading="lazy" decoding="async"
+                            alt="Video Notes annotation editor over a paused football tactics video, with a red arrow, yellow circle, and text drawn on the frame" />
+                    </div>
+                    <figcaption>Draw without leaving the player. Save once, return to the exact frame anytime.</figcaption>
+                </figure>
+
+                <div class="annotation-features">
+                    <article class="annotation-feature">
+                        <span class="annotation-feature-number">01</span>
+                        <h3>Mark it your way.</h3>
+                        <p>Pen, arrows, lines, shapes, text, colors, stroke weights, object eraser, undo and redo.</p>
+                    </article>
+                    <article class="annotation-feature">
+                        <span class="annotation-feature-number">02</span>
+                        <h3>Stay in the flow.</h3>
+                        <p>The video pauses while you draw. Choose Done and playback returns exactly where you stopped.</p>
+                    </article>
+                    <article class="annotation-feature">
+                        <span class="annotation-feature-number">03</span>
+                        <h3>Find the frame again.</h3>
+                        <p>Drawing markers show a visual preview on the timeline and a clear badge in the popup index.</p>
+                    </article>
                 </div>
             </div>
         </section>
