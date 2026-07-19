@@ -6,6 +6,7 @@ const METADATA_STORAGE_KEY = 'videoNotes:metadata';
 const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
 const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
+const PLACEMENT_STORAGE_KEY = 'videoNotes:placement';
 const DELETE_HOLD_ENABLED_STORAGE_KEY = 'videoNotes:deleteHoldEnabled';
 const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
@@ -183,6 +184,39 @@ test('popup marks annotated notes with a drawing badge', async ({
     await expect(
         page.locator('.note-button', { hasText: 'First automated note' }).locator('.note-annotation-badge')
     ).toBeVisible();
+});
+
+test('popup shows and resets a saved custom panel position', async ({
+    getExtensionStorage,
+    page,
+    popupUrl,
+    seedExtensionStorage
+}) => {
+    await seedExtensionStorage({
+        [PLACEMENT_STORAGE_KEY]: {
+            version: 1,
+            mode: 'custom',
+            position: 'after',
+            anchor: { kind: 'element', selectors: ['#title'] },
+            updatedAt: 1_700_000_000_000
+        }
+    });
+
+    await page.goto(popupUrl);
+    await page.getByLabel('Open settings').click();
+    await expect(page.locator('#placement-status')).toHaveText('Custom');
+
+    const resetButton = page.getByRole('button', { name: 'Reset to automatic' });
+    await expect(resetButton).toBeEnabled();
+    await resetButton.click();
+
+    await expect(page.locator('#placement-status')).toHaveText('Automatic');
+    await expect(resetButton).toBeDisabled();
+    await expect(page.getByText('Panel position reset to automatic.')).toBeVisible();
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage(PLACEMENT_STORAGE_KEY);
+        return storage[PLACEMENT_STORAGE_KEY] ?? null;
+    }).toBeNull();
 });
 
 test('popup keeps large note libraries paginated instead of rendering every note', async ({

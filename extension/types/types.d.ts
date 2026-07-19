@@ -125,11 +125,32 @@ interface ThemeState {
 
 type TooltipMode = 'create' | 'edit' | null;
 type CaptureKind = 'text' | 'annotation' | null;
+type PlacementPosition = 'before' | 'after';
+
+interface PlayerPlacementAnchor {
+    kind: 'player';
+}
+
+interface ElementPlacementAnchor {
+    kind: 'element';
+    selectors: string[];
+}
+
+type PlacementAnchor = PlayerPlacementAnchor | ElementPlacementAnchor;
+
+interface PlacementPreference {
+    version: 1;
+    mode: 'custom';
+    position: PlacementPosition;
+    anchor: PlacementAnchor;
+    updatedAt: number;
+}
 
 interface UiElements {
     container: HTMLDivElement | null;
     addButton: HTMLButtonElement | null;
     annotateButton: HTMLButtonElement | null;
+    moveButton: HTMLButtonElement | null;
     zenButton: HTMLButtonElement | null;
     shareButton: HTMLButtonElement | null;
     track: HTMLDivElement | null;
@@ -164,6 +185,8 @@ interface ExtensionState {
     isEnabled: boolean;
     isZenModeEnabled: boolean;
     isAnnotationsEnabled: boolean;
+    placementPreference: PlacementPreference | null;
+    isPlacementModeActive: boolean;
     captureSessionId: number;
 }
 
@@ -228,6 +251,7 @@ interface PopupState {
     isNotesEnabled: boolean;
     isZenModeEnabled: boolean;
     isAnnotationsEnabled: boolean;
+    hasCustomPlacement: boolean;
     isMdExportEnabled: boolean;
     mdTemplate: string;
     isDeleteHoldEnabled: boolean;
@@ -254,6 +278,10 @@ interface PopupElements {
     enableToggle: HTMLInputElement | null;
     zenModeToggle: HTMLInputElement | null;
     annotationsToggle: HTMLInputElement | null;
+    choosePlacementButton: HTMLButtonElement | null;
+    resetPlacementButton: HTMLButtonElement | null;
+    placementStatus: HTMLSpanElement | null;
+    placementMessage: HTMLParagraphElement | null;
     mdExportToggle: HTMLInputElement | null;
     mdTemplateTextarea: HTMLTextAreaElement | null;
     deleteHoldToggle: HTMLInputElement | null;

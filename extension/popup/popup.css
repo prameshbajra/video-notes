@@ -355,6 +355,42 @@ body {
     margin-bottom: 8px;
 }
 
+.settings-actions--flush {
+    margin-bottom: 0;
+}
+
+.placement-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    background-color: var(--background);
+}
+
+.placement-setting__label,
+.placement-setting__status {
+    display: block;
+}
+
+.placement-setting__label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.placement-setting__status {
+    margin-top: 2px;
+    font-weight: 600;
+}
+
+.placement-setting__hint {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
 .settings-button {
     border: none;
     border-radius: 999px;
@@ -386,6 +422,13 @@ body {
     background-color: var(--accent-soft);
     color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.settings-button:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
 }
 
 .settings-message {

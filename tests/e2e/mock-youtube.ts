@@ -2,6 +2,7 @@ interface MockYoutubeOptions {
     title: string;
     durationSeconds?: number;
     currentTimeSeconds?: number;
+    videoClassName?: string;
 }
 
 const escapeHtml = (value: string): string =>
@@ -15,9 +16,11 @@ const escapeHtml = (value: string): string =>
 const createMockYoutubeWatchPage = ({
     title,
     durationSeconds = 600,
-    currentTimeSeconds = 0
+    currentTimeSeconds = 0,
+    videoClassName = 'html5-main-video'
 }: MockYoutubeOptions): string => {
     const safeTitle = escapeHtml(title);
+    const safeVideoClassName = escapeHtml(videoClassName);
 
     return `<!doctype html>
 <html lang="en">
@@ -44,7 +47,7 @@ const createMockYoutubeWatchPage = ({
             background: #000;
         }
 
-        video.html5-main-video {
+        video[data-main-video] {
             width: 100%;
             height: 100%;
             display: block;
@@ -64,7 +67,7 @@ const createMockYoutubeWatchPage = ({
 <body>
     <ytd-watch-flexy>
         <div id="player">
-            <video class="html5-main-video"></video>
+            <video class="${safeVideoClassName}" data-main-video></video>
             <button class="ytp-size-button" type="button" hidden>Theater mode</button>
         </div>
         <div id="primary-inner">
@@ -94,7 +97,7 @@ const createMockYoutubeWatchPage = ({
                 });
             }
 
-            const video = document.querySelector('video.html5-main-video');
+            const video = document.querySelector('video[data-main-video]');
             Object.defineProperty(video, 'duration', {
                 configurable: true,
                 get: () => ${durationSeconds}

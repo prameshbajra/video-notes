@@ -4,12 +4,22 @@ import {
     ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
     OBSERVER_OPTIONS,
+    PLACEMENT_STORAGE_KEY,
+    RESET_PLACEMENT_MESSAGE,
+    START_PLACEMENT_MESSAGE,
     VIDEO_EVENTS,
     ZEN_MODE_STORAGE_KEY,
     ZEN_MODE_STYLE_ID
 } from './constants.js';
 import { resizeCanvasToOverlay } from './annotations.js';
 import { createContainer } from './ui.js';
+import {
+    placeNotesContainer,
+    resetPlacement,
+    startPlacementMode,
+    stopPlacementMode,
+    stopPlacementTracking
+} from './placement.js';
 import {
     applyThemeToUi,
     getThemePalette,
@@ -43,6 +53,7 @@ import { getVideoElement, getVideoIdFromLocation } from './utils.js';
 import {
     getAnnotationsEnabledSetting,
     getNotesEnabledSetting,
+    getPlacementPreference,
     getVideoTitleText,
     getZenModeSetting,
     loadNotesForVideo,
@@ -50,6 +61,7 @@ import {
     persistZenModeSetting,
     resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
+    resolvePlacementPreference,
     resolveZenModeSetting
 } from './storage.js';
 
@@ -218,6 +230,10 @@ const handleZenButtonClick = (): void => {
     updateZenModeSetting(!state.isZenModeEnabled).catch(() => {});
 };
 
+const handleMoveButtonClick = (): void => {
+    startPlacementMode();
+};
+
 const applyAnnotationsEnabledState = (isEnabled: boolean): void => {
     state.isAnnotationsEnabled = isEnabled;
     if (ui.annotateButton) {
@@ -232,6 +248,7 @@ const attachUiListeners = (): void => {
     const {
         addButton,
         annotateButton,
+        moveButton,
         annotationActionButton,
         zenButton,
         tooltip,
@@ -243,6 +260,7 @@ const attachUiListeners = (): void => {
     if (
         !addButton ||
         !annotateButton ||
+        !moveButton ||
         !annotationActionButton ||
         !zenButton ||
         !tooltip ||
@@ -256,6 +274,7 @@ const attachUiListeners = (): void => {
 
     addButton.addEventListener('click', handleAddButtonClick);
     annotateButton.addEventListener('click', handleAnnotateButtonClick);
+    moveButton.addEventListener('click', handleMoveButtonClick);
     annotationActionButton.addEventListener('click', handleAnnotationActionClick);
     zenButton.addEventListener('click', handleZenButtonClick);
     if (ui.shareButton) {
@@ -362,19 +381,10 @@ const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = 
     closeTooltip();
 };
 
-const locateTitleContainer = (): Element | null =>
-    document.querySelector('#primary-inner ytd-watch-metadata #title');
-
 const insertContainer = (): boolean => {
-    const player = document.getElementById('player');
-    const titleContainer = locateTitleContainer();
-    const metadataContainer = titleContainer ? titleContainer.parentElement : null;
-
-    if (!player || !titleContainer || !metadataContainer) {
-        return false;
-    }
-
-    if (document.getElementById(CONTAINER_ID)) {
+    const existingContainer = document.getElementById(CONTAINER_ID);
+    if (existingContainer instanceof HTMLDivElement) {
+        ui.container = existingContainer;
         return true;
     }
 
@@ -383,6 +393,7 @@ const insertContainer = (): boolean => {
     ui.container = elements.container;
     ui.addButton = elements.addButton;
     ui.annotateButton = elements.annotateButton;
+    ui.moveButton = elements.moveButton;
     ui.zenButton = elements.zenButton;
     ui.shareButton = elements.shareButton;
     ui.track = elements.track;
@@ -405,7 +416,9 @@ const insertContainer = (): boolean => {
         return false;
     }
 
-    metadataContainer.insertBefore(elements.container, titleContainer);
+    if (!placeNotesContainer(elements.container, state.placementPreference)) {
+        return false;
+    }
     applyThemeToUi(palette);
     applyAnnotationsEnabledState(state.isAnnotationsEnabled);
     attachUiListeners();
@@ -438,6 +451,8 @@ setEnsureUiReady(ensureUiReady);
 const teardownUi = (): void => {
     closeTooltip();
     hideNotePreview();
+    stopPlacementMode();
+    stopPlacementTracking();
     observer.disconnect();
     detachVideoListeners();
     clearTheaterModeEnforcement();
@@ -450,6 +465,7 @@ const teardownUi = (): void => {
     ui.container = null;
     ui.addButton = null;
     ui.annotateButton = null;
+    ui.moveButton = null;
     ui.zenButton = null;
     ui.shareButton = null;
     ui.track = null;
@@ -501,6 +517,12 @@ const startObserving = (): void => {
 };
 
 const handleRouteChange = (): void => {
+    const previousVideoId = state.videoId;
+    const videoId = getVideoIdFromLocation();
+    if (state.isPlacementModeActive && previousVideoId && videoId !== previousVideoId) {
+        stopPlacementMode();
+    }
+
     if (!state.isEnabled) {
         teardownUi();
         return;
@@ -512,7 +534,6 @@ const handleRouteChange = (): void => {
     }
 
     refreshNotesForCurrentVideo().catch(() => {});
-    const videoId = getVideoIdFromLocation();
     if (!videoId) {
         observer.disconnect();
         return;
@@ -520,6 +541,11 @@ const handleRouteChange = (): void => {
 
     if (!ensureUiReady(videoId)) {
         startObserving();
+        return;
+    }
+
+    if (ui.container) {
+        placeNotesContainer(ui.container, state.placementPreference);
     }
 };
 
@@ -558,6 +584,13 @@ const handleStorageChange = (
         applyAnnotationsEnabledState(nextAnnotationsEnabled);
     }
 
+    if (changes[PLACEMENT_STORAGE_KEY]) {
+        state.placementPreference = resolvePlacementPreference(changes[PLACEMENT_STORAGE_KEY].newValue);
+        if (ui.container) {
+            placeNotesContainer(ui.container, state.placementPreference);
+        }
+    }
+
     if (!state.isEnabled) {
         return;
     }
@@ -588,17 +621,48 @@ const handleStorageChange = (
     refreshNotesForCurrentVideo({ forceReload: true }).catch(() => {});
 };
 
+const handleRuntimeMessage = (
+    message: { type?: unknown },
+    _sender: chrome.runtime.MessageSender,
+    sendResponse: (response: { success: boolean; error?: string }) => void
+): boolean => {
+    if (message.type === START_PLACEMENT_MESSAGE) {
+        if (!state.isEnabled || !ensureUiReady()) {
+            sendResponse({ success: false, error: 'Open a YouTube video before choosing a panel position.' });
+            return false;
+        }
+
+        const didStart = startPlacementMode();
+        sendResponse({
+            success: didStart,
+            error: didStart ? undefined : 'Unable to start position selection on this page.'
+        });
+        return false;
+    }
+
+    if (message.type === RESET_PLACEMENT_MESSAGE) {
+        resetPlacement()
+            .then(() => sendResponse({ success: true }))
+            .catch(() => sendResponse({ success: false, error: 'Unable to reset the panel position.' }));
+        return true;
+    }
+
+    return false;
+};
+
 const initialize = async (): Promise<void> => {
     attachResponsiveListeners();
     attachShortcutListener();
     watchThemeChanges();
     handleThemeChange();
 
-    const [isEnabled, isZenModeEnabled, isAnnotationsEnabled] = await Promise.all([
+    const [isEnabled, isZenModeEnabled, isAnnotationsEnabled, placementPreference] = await Promise.all([
         getNotesEnabledSetting(),
         getZenModeSetting(),
-        getAnnotationsEnabledSetting()
+        getAnnotationsEnabledSetting(),
+        getPlacementPreference()
     ]);
+    state.placementPreference = placementPreference;
     applyZenModeState(isZenModeEnabled);
     applyAnnotationsEnabledState(isAnnotationsEnabled);
     applyEnabledState(isEnabled);
@@ -607,6 +671,13 @@ const initialize = async (): Promise<void> => {
         chrome.storage.onChanged.addListener(handleStorageChange);
         window.addEventListener('pagehide', () => {
             chrome.storage.onChanged.removeListener(handleStorageChange);
+        });
+    }
+
+    if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+        chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+        window.addEventListener('pagehide', () => {
+            chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
         });
     }
 };

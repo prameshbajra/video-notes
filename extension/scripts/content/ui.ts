@@ -322,6 +322,24 @@ const createContainer = (palette: ThemePalette): UiElements => {
     annotateButton.setAttribute('aria-label', 'Annotate the video at the current moment');
     annotateButton.title = 'Annotate — Alt/Option + A';
 
+    const moveButton = createButton('Move', {
+        borderRadius: '999px',
+        border: palette.surfaceBorder,
+        backgroundColor: palette.surfaceMuted,
+        color: palette.textPrimary,
+        fontSize: '13px',
+        fontWeight: '600',
+        lineHeight: '1.2',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '6px 12px'
+    });
+    moveButton.id = 'video-notes-move-button';
+    moveButton.setAttribute('aria-label', 'Choose where Video Notes appears');
+    moveButton.title = 'Choose panel position';
+
     const shareButton = createButton('Share', {
         borderRadius: '999px',
         border: palette.surfaceBorder,
@@ -341,6 +359,7 @@ const createContainer = (palette: ThemePalette): UiElements => {
     header.appendChild(title);
     actions.appendChild(zenButton);
     actions.appendChild(shareButton);
+    actions.appendChild(moveButton);
     actions.appendChild(annotateButton);
     actions.appendChild(addButton);
     header.appendChild(actions);
@@ -409,6 +428,7 @@ const createContainer = (palette: ThemePalette): UiElements => {
         container,
         addButton,
         annotateButton,
+        moveButton,
         zenButton,
         shareButton,
         track,

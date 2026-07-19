@@ -362,6 +362,11 @@ const applyThemeToUi = (palette: ThemePalette | null): void => {
         ui.annotateButton.style.color = palette.textPrimary;
         ui.annotateButton.style.border = palette.surfaceBorder;
     }
+    if (ui.moveButton) {
+        ui.moveButton.style.backgroundColor = palette.surfaceMuted;
+        ui.moveButton.style.color = palette.textPrimary;
+        ui.moveButton.style.border = palette.surfaceBorder;
+    }
     if (ui.annotationActionButton) {
         ui.annotationActionButton.style.backgroundColor = palette.surfaceMuted;
         ui.annotationActionButton.style.color = palette.textPrimary;

@@ -7,6 +7,7 @@ const METADATA_STORAGE_KEY = 'videoNotes:metadata';
 const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
 const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
+const PLACEMENT_STORAGE_KEY = 'videoNotes:placement';
 const VIDEO_ID = 'e2e-content-video';
 const NOTE_TEXT = 'A timestamped note from automation';
 
@@ -98,6 +99,168 @@ const delayContentStorageWrites = async (page: Page, delayMilliseconds: number):
 
 test.beforeEach(async ({ clearExtensionStorage }) => {
     await clearExtensionStorage();
+});
+
+test('content script detects a generic long-form video and places the panel after its player', async ({ page }) => {
+    const videoId = 'e2e-generic-video';
+    await page.route(`https://www.youtube.com/watch?v=${videoId}`, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/html',
+            body: createMockYoutubeWatchPage({
+                title: 'Generic Video Element',
+                durationSeconds: 900,
+                currentTimeSeconds: 75,
+                videoClassName: 'site-player-video'
+            })
+        });
+    });
+
+    await page.goto(`https://www.youtube.com/watch?v=${videoId}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('video.site-player-video')).toBeVisible();
+
+    const container = page.locator('#video-notes-container');
+    await expect(container).toBeVisible();
+    await expect(container).toHaveAttribute('data-video-notes-placement', 'automatic');
+    await expect(page.locator('#player + #video-notes-container')).toHaveCount(1);
+
+    const spacing = await page.locator('#player').evaluate((player) => {
+        const panel = player.nextElementSibling as HTMLElement | null;
+        if (!panel) {
+            return null;
+        }
+        const playerRect = player.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        return Math.round(panelRect.top - playerRect.bottom);
+    });
+    expect(spacing).toBe(24);
+});
+
+test('content script lets the user pick and persist a custom inline panel position', async ({
+    getExtensionStorage,
+    page
+}) => {
+    const videoId = 'e2e-custom-placement-video';
+    await openMockWatchPage(page, videoId, { title: 'Custom Placement Video' });
+
+    await page.getByRole('button', { name: 'Choose where Video Notes appears' }).click();
+    const picker = page.locator('#video-notes-placement-root');
+    await expect(picker).toBeVisible();
+    await expect(picker).toContainText('choose an inline gap');
+
+    const titleBox = await page.locator('#title').boundingBox();
+    expect(titleBox).not.toBeNull();
+    if (!titleBox) {
+        return;
+    }
+
+    await page.mouse.move(titleBox.x + titleBox.width / 2, titleBox.y + titleBox.height * 0.8);
+    await expect(picker).toContainText('Click to place Video Notes');
+    await expect(picker.getByText('Video Notes will appear here')).toBeVisible();
+    await page.mouse.click(titleBox.x + titleBox.width / 2, titleBox.y + titleBox.height * 0.8);
+
+    await expect(picker).toHaveCount(0);
+    const container = page.locator('#video-notes-container');
+    await expect(container).toHaveAttribute('data-video-notes-placement', 'custom');
+    await expect(page.locator('#title + #video-notes-container')).toHaveCount(1);
+
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage(PLACEMENT_STORAGE_KEY);
+        const preference = storage[PLACEMENT_STORAGE_KEY] as {
+            mode?: string;
+            position?: string;
+            anchor?: { kind?: string; selectors?: string[] };
+        } | undefined;
+        return preference
+            ? {
+                mode: preference.mode,
+                position: preference.position,
+                kind: preference.anchor?.kind,
+                hasTitleSelector: preference.anchor?.selectors?.includes('#title') === true
+            }
+            : null;
+    }).toEqual({
+        mode: 'custom',
+        position: 'after',
+        kind: 'element',
+        hasTitleSelector: true
+    });
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#title + #video-notes-container')).toHaveCount(1);
+    await expect(container).toHaveAttribute('data-video-notes-placement', 'custom');
+});
+
+test('content script starts placement mode from an extension message', async ({ page, serviceWorker }) => {
+    const videoId = 'e2e-placement-message-video';
+    await openMockWatchPage(page, videoId, { title: 'Placement Message Video' });
+    await expect(page.locator('#video-notes-container')).toBeVisible();
+
+    const response = await serviceWorker.evaluate(async () => {
+        const tabs = await chrome.tabs.query({ url: 'https://www.youtube.com/*' });
+        const targetTab = tabs.find((tab) => typeof tab.id === 'number');
+        if (typeof targetTab?.id !== 'number') {
+            return { success: false };
+        }
+        return chrome.tabs.sendMessage(targetTab.id, { type: 'VIDEO_NOTES_START_PLACEMENT' }) as Promise<{
+            success: boolean;
+        }>;
+    });
+
+    expect(response.success).toBe(true);
+    await expect(page.locator('#video-notes-placement-root')).toBeVisible();
+    await page.evaluate(() => {
+        window.dispatchEvent(new Event('yt-page-data-updated'));
+    });
+    await expect(page.locator('#video-notes-placement-root')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.locator('#video-notes-placement-root')).toHaveCount(0);
+});
+
+test('content script resets a custom position and retains the YouTube fallback', async ({
+    getExtensionStorage,
+    page,
+    seedExtensionStorage
+}) => {
+    const videoId = 'e2e-placement-reset-video';
+    await seedExtensionStorage({
+        [PLACEMENT_STORAGE_KEY]: {
+            version: 1,
+            mode: 'custom',
+            position: 'after',
+            anchor: { kind: 'element', selectors: ['#missing-placement-anchor'] },
+            updatedAt: 1_700_000_000_000
+        }
+    });
+    await openMockWatchPage(page, videoId, { title: 'Placement Reset Video' });
+
+    await expect(page.locator('#video-notes-container')).toHaveAttribute(
+        'data-video-notes-placement',
+        'automatic'
+    );
+
+    await page.evaluate(() => {
+        const flexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        const panel = document.getElementById('video-notes-container');
+        if (flexy) {
+            flexy.style.display = 'grid';
+        }
+        panel?.remove();
+        window.dispatchEvent(new Event('yt-page-data-updated'));
+    });
+
+    const fallbackPanel = page.locator('#video-notes-container');
+    await expect(fallbackPanel).toHaveAttribute('data-video-notes-placement', 'youtube-fallback');
+    await expect(page.locator('#watch-metadata-title-row > #video-notes-container + #title')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Choose where Video Notes appears' }).click();
+    await page.getByRole('button', { name: 'Reset Video Notes to automatic position' }).click();
+    await expect(page.locator('#video-notes-placement-root')).toHaveCount(0);
+    await expect.poll(async () => {
+        const storage = await getExtensionStorage(PLACEMENT_STORAGE_KEY);
+        return storage[PLACEMENT_STORAGE_KEY] ?? null;
+    }).toBeNull();
+    await expect(fallbackPanel).toHaveAttribute('data-video-notes-placement', 'youtube-fallback');
 });
 
 test('content script creates and persists a timestamped note on a YouTube watch page', async ({

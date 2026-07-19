@@ -14,7 +14,9 @@ import {
     NOTE_RENDER_BATCH_SIZE,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
+    PLACEMENT_STORAGE_KEY,
     SEARCH_DEBOUNCE_MS,
+    START_PLACEMENT_MESSAGE,
     VIDEO_RENDER_BATCH_SIZE,
     VIEW_NOTES,
     VIEW_SETTINGS,
@@ -24,6 +26,7 @@ import {
     elements,
     setActiveView,
     setEnteringGeminiKey,
+    setPlacementMessage,
     setSettingsMessage,
     shouldCloseOnNavigate,
     showToast,
@@ -35,6 +38,7 @@ import {
     syncMdTemplate,
     syncNewTabFlashcardsToggle,
     syncNotesToggle,
+    syncPlacementPreference,
     syncViewVisibility,
     syncZenModeToggle,
     syncAnnotationsToggle
@@ -64,6 +68,7 @@ import {
     persistZenModeEnabled,
     removeFlashcardsCache,
     removeGeminiApiKey,
+    removePlacementPreference,
     resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
     resolveFlashcardsEnabledSetting,
@@ -257,6 +262,67 @@ const handleFlashcardsKeyClearClick = (): void => {
     clearGeminiApiKey().catch(() => {});
 };
 
+const sendMessageToActiveTab = (type: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.tabs?.query || !chrome.tabs.sendMessage) {
+            reject(new Error('Tabs unavailable'));
+            return;
+        }
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const queryError = chrome.runtime?.lastError;
+            const tabId = tabs[0]?.id;
+            if (queryError || typeof tabId !== 'number') {
+                reject(new Error(queryError?.message || 'No active tab'));
+                return;
+            }
+
+            chrome.tabs.sendMessage(
+                tabId,
+                { type },
+                (response?: { success?: unknown; error?: unknown }) => {
+                    const messageError = chrome.runtime?.lastError;
+                    if (messageError) {
+                        reject(new Error(messageError.message));
+                        return;
+                    }
+                    if (response?.success !== true) {
+                        const error = typeof response?.error === 'string'
+                            ? response.error
+                            : 'Unable to start position selection.';
+                        reject(new Error(error));
+                        return;
+                    }
+                    resolve(undefined);
+                }
+            );
+        });
+    });
+
+const handleChoosePlacementClick = async (): Promise<void> => {
+    setPlacementMessage('');
+    try {
+        await sendMessageToActiveTab(START_PLACEMENT_MESSAGE);
+        if (shouldCloseOnNavigate) {
+            window.close();
+            return;
+        }
+        setPlacementMessage('Position selection started on the active YouTube tab.', 'success');
+    } catch {
+        setPlacementMessage('Open a YouTube video in the active tab, then try again.', 'error');
+    }
+};
+
+const handleResetPlacementClick = async (): Promise<void> => {
+    try {
+        await removePlacementPreference();
+        syncPlacementPreference(false);
+        setPlacementMessage('Panel position reset to automatic.', 'success');
+    } catch {
+        setPlacementMessage('Unable to reset the panel position.', 'error');
+    }
+};
+
 const loadNotesEnabledFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
     const isEnabled = resolveEnabledSetting(snapshot[ENABLED_STORAGE_KEY]);
@@ -273,6 +339,11 @@ const loadAnnotationsEnabledFromStorage = async (): Promise<void> => {
     const snapshot = await getStorageSnapshot();
     const isAnnotationsEnabled = resolveAnnotationsEnabledSetting(snapshot[ANNOTATIONS_ENABLED_STORAGE_KEY]);
     syncAnnotationsToggle(isAnnotationsEnabled);
+};
+
+const loadPlacementPreferenceFromStorage = async (): Promise<void> => {
+    const snapshot = await getStorageSnapshot();
+    syncPlacementPreference(Boolean(snapshot[PLACEMENT_STORAGE_KEY]));
 };
 
 const loadMdExportEnabledFromStorage = async (): Promise<void> => {
@@ -740,6 +811,10 @@ const storageChangeHandler = (changes: Record<string, chrome.storage.StorageChan
         syncAnnotationsToggle(nextAnnotationsEnabled);
     }
 
+    if (changes[PLACEMENT_STORAGE_KEY]) {
+        syncPlacementPreference(Boolean(changes[PLACEMENT_STORAGE_KEY].newValue));
+    }
+
     if (changes[MD_EXPORT_ENABLED_STORAGE_KEY]) {
         const nextMdExportEnabled = resolveEnabledSetting(changes[MD_EXPORT_ENABLED_STORAGE_KEY].newValue);
         syncMdExportToggle(nextMdExportEnabled);
@@ -822,6 +897,9 @@ const initialize = (): void => {
     loadAnnotationsEnabledFromStorage().catch(() => {
         syncAnnotationsToggle(true);
     });
+    loadPlacementPreferenceFromStorage().catch(() => {
+        syncPlacementPreference(false);
+    });
     loadMdExportEnabledFromStorage().catch(() => {
         syncMdExportToggle(false);
     });
@@ -879,6 +957,18 @@ const initialize = (): void => {
 
     if (elements.annotationsToggle) {
         elements.annotationsToggle.addEventListener('change', handleAnnotationsToggleChange);
+    }
+
+    if (elements.choosePlacementButton) {
+        elements.choosePlacementButton.addEventListener('click', () => {
+            handleChoosePlacementClick().catch(() => {});
+        });
+    }
+
+    if (elements.resetPlacementButton) {
+        elements.resetPlacementButton.addEventListener('click', () => {
+            handleResetPlacementClick().catch(() => {});
+        });
     }
 
     if (elements.mdExportToggle) {

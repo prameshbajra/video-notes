@@ -3,6 +3,7 @@ const METADATA_STORAGE_KEY = 'videoNotes:metadata';
 const ENABLED_STORAGE_KEY = 'videoNotes:enabled';
 const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
+const PLACEMENT_STORAGE_KEY = 'videoNotes:placement';
 const MD_EXPORT_ENABLED_STORAGE_KEY = 'videoNotes:mdExportEnabled';
 const MD_TEMPLATE_STORAGE_KEY = 'videoNotes:mdTemplate';
 const MD_TEMPLATE_VERSION_STORAGE_KEY = 'videoNotes:mdTemplateVersion';
@@ -25,6 +26,7 @@ const VIEW_NOTES = 'notes';
 const VIEW_SETTINGS = 'settings';
 const VIEW_CONTEXT_PAGE = 'page';
 const SETTINGS_MESSAGE_STATES = ['settings-message--success', 'settings-message--error'] as const;
+const START_PLACEMENT_MESSAGE = 'VIDEO_NOTES_START_PLACEMENT';
 
 export {
     ANNOTATIONS_ENABLED_STORAGE_KEY,
@@ -47,8 +49,10 @@ export {
     NOTE_RENDER_BATCH_SIZE,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
+    PLACEMENT_STORAGE_KEY,
     SEARCH_DEBOUNCE_MS,
     SETTINGS_MESSAGE_STATES,
+    START_PLACEMENT_MESSAGE,
     VIDEO_RENDER_BATCH_SIZE,
     VIEW_CONTEXT_PAGE,
     VIEW_NOTES,

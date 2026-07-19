@@ -21,6 +21,7 @@ const state: PopupState = {
     isNotesEnabled: true,
     isZenModeEnabled: false,
     isAnnotationsEnabled: true,
+    hasCustomPlacement: false,
     isMdExportEnabled: false,
     mdTemplate: DEFAULT_MD_TEMPLATE,
     isDeleteHoldEnabled: true,
@@ -47,6 +48,10 @@ const elements: PopupElements = {
     enableToggle: document.getElementById('enable-notes-toggle') as HTMLInputElement | null,
     zenModeToggle: document.getElementById('zen-mode-toggle') as HTMLInputElement | null,
     annotationsToggle: document.getElementById('annotations-toggle') as HTMLInputElement | null,
+    choosePlacementButton: document.getElementById('choose-placement-button') as HTMLButtonElement | null,
+    resetPlacementButton: document.getElementById('reset-placement-button') as HTMLButtonElement | null,
+    placementStatus: document.getElementById('placement-status') as HTMLSpanElement | null,
+    placementMessage: document.getElementById('placement-message') as HTMLParagraphElement | null,
     mdExportToggle: document.getElementById('md-export-toggle') as HTMLInputElement | null,
     mdTemplateTextarea: document.getElementById('md-template-textarea') as HTMLTextAreaElement | null,
     deleteHoldToggle: document.getElementById('delete-hold-toggle') as HTMLInputElement | null,
@@ -80,6 +85,16 @@ const syncAnnotationsToggle = (isEnabled: boolean): void => {
     state.isAnnotationsEnabled = isEnabled;
     if (elements.annotationsToggle) {
         elements.annotationsToggle.checked = isEnabled;
+    }
+};
+
+const syncPlacementPreference = (hasCustomPlacement: boolean): void => {
+    state.hasCustomPlacement = hasCustomPlacement;
+    if (elements.placementStatus) {
+        elements.placementStatus.textContent = hasCustomPlacement ? 'Custom' : 'Automatic';
+    }
+    if (elements.resetPlacementButton) {
+        elements.resetPlacementButton.disabled = !hasCustomPlacement;
     }
 };
 
@@ -194,8 +209,11 @@ const setActiveView = (view: ViewName): void => {
     syncViewVisibility();
 };
 
-const setSettingsMessage = (message: string, variant?: 'success' | 'error'): void => {
-    const messageElement = elements.settingsMessage;
+const setMessage = (
+    messageElement: HTMLParagraphElement | null,
+    message: string,
+    variant?: 'success' | 'error'
+): void => {
     if (!messageElement) {
         return;
     }
@@ -211,6 +229,14 @@ const setSettingsMessage = (message: string, variant?: 'success' | 'error'): voi
 
     const className = variant === 'success' ? 'settings-message--success' : 'settings-message--error';
     messageElement.classList.add(className);
+};
+
+const setSettingsMessage = (message: string, variant?: 'success' | 'error'): void => {
+    setMessage(elements.settingsMessage, message, variant);
+};
+
+const setPlacementMessage = (message: string, variant?: 'success' | 'error'): void => {
+    setMessage(elements.placementMessage, message, variant);
 };
 
 let activeToastTimer: number | null = null;
@@ -248,6 +274,7 @@ export {
     elements,
     setActiveView,
     setEnteringGeminiKey,
+    setPlacementMessage,
     setSettingsMessage,
     shouldCloseOnNavigate,
     showToast,
@@ -260,6 +287,7 @@ export {
     syncMdTemplate,
     syncNewTabFlashcardsToggle,
     syncNotesToggle,
+    syncPlacementPreference,
     syncViewVisibility,
     syncZenModeToggle,
     viewContext

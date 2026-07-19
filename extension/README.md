@@ -7,6 +7,7 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
 - Drawing annotations include pen, shapes, arrows, text, an object eraser, color/stroke controls, undo/redo (`Ctrl/Cmd+Z`, tool hotkeys `V P T L A R O E`), and a movable toolbar. Done or `Ctrl/Cmd+Enter` saves a standalone annotation; Esc cancels it, and an empty Done exits without saving. Choosing Add drawing from an unsaved text draft switches modes without saving the draft, and selecting an existing annotation opens its canvas directly with a Delete action. Annotations get a ring on the timeline dot, an image in the hover preview, a badge in the popup, and an exact-frame overlay on shared pages. The Fabric.js editor is dynamically imported so ordinary text notes do not load or open the drawing surface.
 - Annotation-heavy libraries use the extension's unlimited local-storage permission. Save failures remain visible and keep the current editor open for retry.
 - Timeline track beneath the header with hover previews and click-to-seek/edit.
+- Automatic inline placement detects the dominant long-form HTML video, inserts the panel 24 px below a safe player container, and retains the previous YouTube metadata location as the final fallback. The panel's Move action or popup settings can start a visual position picker; custom positions are saved browser-locally and can be reset to automatic.
 - Popup dashboard lists every video, offers instant search across titles and note text, and opens tabs at saved timestamps.
 - Optional flashcards on the new tab: when enabled, a background listener redirects freshly opened tabs to a one-card flashcard page (independent settings toggle; needs the `tabs` permission, a Gemini key, and 6+ notes). If the key is missing, the new-tab page shows inline Gemini-key onboarding; when off, your browser's native new tab is left untouched. The deck cache is warmed on enable / key-save and refreshed stale-while-revalidate.
 - Light/dark adapts to YouTube theme signals; storage is local via `chrome.storage.local` (`videoNotes:*` namespaces).
@@ -69,6 +70,16 @@ Video Notes injects a lightweight note workspace directly on YouTube watch pages
       "noteCount": 3,
       "updatedAt": 1698889999999
     }
+  },
+  "videoNotes:placement": {
+    "version": 1,
+    "mode": "custom",
+    "position": "after",
+    "anchor": {
+      "kind": "element",
+      "selectors": ["#title"]
+    },
+    "updatedAt": 1698889999999
   }
 }
 ```

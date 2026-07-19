@@ -12,6 +12,7 @@ import {
     METADATA_STORAGE_KEY,
     NEWTAB_FLASHCARDS_ENABLED_STORAGE_KEY,
     NOTES_STORAGE_KEY,
+    PLACEMENT_STORAGE_KEY,
     ZEN_MODE_STORAGE_KEY
 } from './constants.js';
 
@@ -31,6 +32,7 @@ const getStorageSnapshot = (): Promise<StorageSnapshot> =>
         chrome.storage.local.get(
             [
                 NOTES_STORAGE_KEY,
+                PLACEMENT_STORAGE_KEY,
                 METADATA_STORAGE_KEY,
                 ENABLED_STORAGE_KEY,
                 ZEN_MODE_STORAGE_KEY,
@@ -84,6 +86,22 @@ const persistNotesEnabled = (isEnabled: boolean): Promise<void> =>
         }
 
         chrome.storage.local.set({ [ENABLED_STORAGE_KEY]: isEnabled }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(undefined);
+        });
+    });
+
+const removePlacementPreference = (): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            reject(new Error('Storage unavailable'));
+            return;
+        }
+
+        chrome.storage.local.remove(PLACEMENT_STORAGE_KEY, () => {
             if (chrome.runtime && chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
                 return;
@@ -286,6 +304,7 @@ export {
     persistZenModeEnabled,
     removeFlashcardsCache,
     removeGeminiApiKey,
+    removePlacementPreference,
     resolveEnabledSetting,
     resolveAnnotationsEnabledSetting,
     resolveFlashcardsEnabledSetting,

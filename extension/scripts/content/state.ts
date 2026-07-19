@@ -13,6 +13,8 @@ const state: ExtensionState = {
     isEnabled: true,
     isZenModeEnabled: false,
     isAnnotationsEnabled: true,
+    placementPreference: null,
+    isPlacementModeActive: false,
     captureSessionId: 0
 };
 
@@ -20,6 +22,7 @@ const ui: UiElements = {
     container: null,
     addButton: null,
     annotateButton: null,
+    moveButton: null,
     zenButton: null,
     shareButton: null,
     track: null,

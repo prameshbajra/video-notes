@@ -3,12 +3,54 @@ import {
     ENABLED_STORAGE_KEY,
     METADATA_STORAGE_KEY,
     NOTES_STORAGE_KEY,
+    PLACEMENT_STORAGE_KEY,
     ZEN_MODE_STORAGE_KEY
 } from './constants.js';
 
 const resolveEnabledSetting = (value: unknown): boolean => value !== false;
 const resolveZenModeSetting = (value: unknown): boolean => value === true;
 const resolveAnnotationsEnabledSetting = (value: unknown): boolean => value !== false;
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const resolvePlacementPreference = (value: unknown): PlacementPreference | null => {
+    if (!isPlainRecord(value) || value.version !== 1 || value.mode !== 'custom') {
+        return null;
+    }
+
+    const position = value.position;
+    const rawAnchor = value.anchor;
+    const updatedAt = Number(value.updatedAt);
+    if ((position !== 'before' && position !== 'after') || !isPlainRecord(rawAnchor)) {
+        return null;
+    }
+
+    let anchor: PlacementAnchor | null = null;
+    if (rawAnchor.kind === 'player') {
+        anchor = { kind: 'player' };
+    } else if (rawAnchor.kind === 'element' && Array.isArray(rawAnchor.selectors)) {
+        const selectors = rawAnchor.selectors
+            .filter((selector): selector is string => typeof selector === 'string' && selector.trim().length > 0)
+            .map((selector) => selector.trim())
+            .slice(0, 6);
+        if (selectors.length > 0) {
+            anchor = { kind: 'element', selectors };
+        }
+    }
+
+    if (!anchor) {
+        return null;
+    }
+
+    return {
+        version: 1,
+        mode: 'custom',
+        position,
+        anchor,
+        updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : Date.now()
+    };
+};
 
 const getStorageArea = (): chrome.storage.LocalStorageArea | null => {
     const hasRuntime =
@@ -78,6 +120,55 @@ const getAnnotationsEnabledSetting = (): Promise<boolean> => {
             });
         } catch {
             resolve(true);
+        }
+    });
+};
+
+const getPlacementPreference = (): Promise<PlacementPreference | null> => {
+    const storage = getStorageArea();
+    if (!storage) {
+        return Promise.resolve(null);
+    }
+
+    return new Promise((resolve) => {
+        try {
+            storage.get([PLACEMENT_STORAGE_KEY], (result) => {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                    resolve(null);
+                    return;
+                }
+                resolve(resolvePlacementPreference(result[PLACEMENT_STORAGE_KEY]));
+            });
+        } catch {
+            resolve(null);
+        }
+    });
+};
+
+const persistPlacementPreference = (preference: PlacementPreference | null): Promise<void> => {
+    const storage = getStorageArea();
+    if (!storage) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        const handleResult = (): void => {
+            const runtimeError = chrome.runtime?.lastError;
+            if (runtimeError) {
+                reject(new Error(runtimeError.message || 'Unable to save panel position'));
+                return;
+            }
+            resolve(undefined);
+        };
+
+        try {
+            if (preference) {
+                storage.set({ [PLACEMENT_STORAGE_KEY]: preference }, handleResult);
+            } else {
+                storage.remove(PLACEMENT_STORAGE_KEY, handleResult);
+            }
+        } catch (error) {
+            reject(error instanceof Error ? error : new Error('Unable to save panel position'));
         }
     });
 };
@@ -360,13 +451,16 @@ const persistNotesForVideo = async (videoId: string, notes: Note[]): Promise<voi
 export {
     getAnnotationsEnabledSetting,
     getNotesEnabledSetting,
+    getPlacementPreference,
     getVideoTitleText,
     getZenModeSetting,
     loadNotesForVideo,
     persistNotesForVideo,
+    persistPlacementPreference,
     persistVideoMetadata,
     persistZenModeSetting,
     resolveAnnotationsEnabledSetting,
     resolveEnabledSetting,
+    resolvePlacementPreference,
     resolveZenModeSetting
 };
