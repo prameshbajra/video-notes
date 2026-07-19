@@ -242,22 +242,22 @@ const startAnnotationCapture = ({
     note: Note | null;
     timestamp: number;
     anchor: HTMLElement | null;
-}): void => {
+}): boolean => {
     if (isAnnotationEditorActive() || (!state.isAnnotationsEnabled && !note?.annotation)) {
-        return;
+        return false;
     }
 
     const video = state.video || getVideoElement();
     if (!video) {
-        return;
+        return false;
     }
 
     state.video = video;
     if (!video.paused && !video.ended && !state.resumePlaybackVideo) {
         state.resumePlaybackVideo = video;
     }
-    video.pause();
     video.currentTime = timestamp;
+    video.pause();
 
     state.captureSessionId += 1;
     state.tooltipMode = note ? 'edit' : 'create';
@@ -278,6 +278,22 @@ const startAnnotationCapture = ({
             closeTooltip();
         }
     }).catch(() => closeTooltip());
+    return true;
+};
+
+const openAnnotationNoteById = (noteId: string): boolean => {
+    const note = state.notes.find((entry) => entry.id === noteId);
+    if (!note?.annotation) {
+        return false;
+    }
+
+    if (isAnnotationEditorActive() && state.activeNoteId === note.id) {
+        return true;
+    }
+
+    const noteDots = ui.track?.querySelectorAll<HTMLElement>('[data-note-id]') || [];
+    const anchor = Array.from(noteDots).find((dot) => dot.dataset.noteId === note.id) || null;
+    return startAnnotationCapture({ note, timestamp: note.timestamp, anchor });
 };
 
 const handleAnnotateButtonClick = (): void => {
@@ -568,6 +584,7 @@ export {
     handleTrackMouseMove,
     handleTooltipKeydown,
     handleSave,
+    openAnnotationNoteById,
     renderNotesTrack,
     syncTooltipAnnotationControls,
     setEnsureUiReady

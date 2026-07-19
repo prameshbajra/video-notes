@@ -328,11 +328,11 @@
                 const note = sortedNotes[noteIndex];
                 const hasAnnotation = Boolean(getAnnotationImage(note));
                 clearAnnotationOverlay();
-                if (hasAnnotation && typeof player.pauseVideo === 'function') {
-                    player.pauseVideo();
-                }
                 player.seekTo(ts, true);
                 if (hasAnnotation) {
+                    if (typeof player.pauseVideo === 'function') {
+                        player.pauseVideo();
+                    }
                     updateAnnotationOverlay(note, ts);
                 } else if (typeof player.playVideo === 'function') {
                     player.playVideo();

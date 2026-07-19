@@ -1,0 +1,3 @@
+const ANNOTATION_NOTE_QUERY_PARAM = 'videoNotesNote';
+
+export { ANNOTATION_NOTE_QUERY_PARAM };

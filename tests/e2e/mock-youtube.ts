@@ -103,12 +103,19 @@ const createMockYoutubeWatchPage = ({
                 configurable: true,
                 get: () => false
             });
+            let isPaused = true;
+            Object.defineProperty(video, 'paused', {
+                configurable: true,
+                get: () => isPaused
+            });
             video.currentTime = ${currentTimeSeconds};
             video.pause = () => {
+                isPaused = true;
                 window.__videoNotesPauseCalled = true;
                 video.dispatchEvent(new Event('pause'));
             };
             video.play = () => {
+                isPaused = false;
                 window.__videoNotesPlayCalled = true;
                 video.dispatchEvent(new Event('play'));
                 return Promise.resolve();

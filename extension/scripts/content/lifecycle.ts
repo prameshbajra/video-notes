@@ -29,6 +29,7 @@ import {
     handleTrackClick,
     handleTrackMouseLeave,
     handleTrackMouseMove,
+    openAnnotationNoteById,
     renderNotesTrack,
     setEnsureUiReady
 } from './notes.js';
@@ -52,6 +53,7 @@ import {
     resolveEnabledSetting,
     resolveZenModeSetting
 } from './storage.js';
+import { ANNOTATION_NOTE_QUERY_PARAM } from '../../note-navigation.js';
 
 const ZEN_MODE_STYLE = `
     #primary {
@@ -68,6 +70,45 @@ const ZEN_MODE_STYLE = `
 
 let zenStyleElement: HTMLStyleElement | null = null;
 let theaterModeTimeout: number | null = null;
+
+const getRequestedAnnotationNoteId = (): string | null => {
+    try {
+        const noteId = new URL(window.location.href).searchParams.get(ANNOTATION_NOTE_QUERY_PARAM);
+        return noteId && noteId.trim() ? noteId : null;
+    } catch {
+        return null;
+    }
+};
+
+const clearRequestedAnnotationNoteId = (): void => {
+    try {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has(ANNOTATION_NOTE_QUERY_PARAM)) {
+            return;
+        }
+        url.searchParams.delete(ANNOTATION_NOTE_QUERY_PARAM);
+        window.history.replaceState(window.history.state, '', url.toString());
+    } catch {
+        // Leave malformed navigation state untouched.
+    }
+};
+
+const openRequestedAnnotationNote = (): void => {
+    const noteId = getRequestedAnnotationNoteId();
+    if (!noteId) {
+        return;
+    }
+
+    const note = state.notes.find((entry) => entry.id === noteId);
+    if (!note?.annotation) {
+        clearRequestedAnnotationNoteId();
+        return;
+    }
+
+    if (openAnnotationNoteById(noteId)) {
+        clearRequestedAnnotationNoteId();
+    }
+};
 
 const isTheaterModeActive = (): boolean => {
     const flexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
@@ -338,6 +379,7 @@ const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = 
         assignVideoElement();
         renderNotesTrack();
         updateShareButtonVisibility();
+        openRequestedAnnotationNote();
         return;
     }
 
@@ -360,6 +402,7 @@ const refreshNotesForCurrentVideo = async (options: { forceReload?: boolean } = 
     renderNotesTrack();
     updateShareButtonVisibility();
     closeTooltip();
+    openRequestedAnnotationNote();
 };
 
 const locateTitleContainer = (): Element | null =>

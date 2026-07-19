@@ -9,14 +9,26 @@ const ZEN_MODE_STORAGE_KEY = 'videoNotes:zenMode';
 const ANNOTATIONS_ENABLED_STORAGE_KEY = 'videoNotes:annotationsEnabled';
 const VIDEO_ID = 'e2e-content-video';
 const NOTE_TEXT = 'A timestamped note from automation';
+const PNG_DATA_URL =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
 
 const openMockWatchPage = async (
     page: Page,
     videoId: string,
-    options: { title?: string; durationSeconds?: number; currentTimeSeconds?: number } = {}
+    options: {
+        title?: string;
+        durationSeconds?: number;
+        currentTimeSeconds?: number;
+        annotationNoteId?: string;
+    } = {}
 ): Promise<void> => {
     const title = options.title || 'E2E Content Test Video';
-    await page.route(`https://www.youtube.com/watch?v=${videoId}`, async (route) => {
+    const targetUrl = new URL('https://www.youtube.com/watch');
+    targetUrl.searchParams.set('v', videoId);
+    if (options.annotationNoteId) {
+        targetUrl.searchParams.set('videoNotesNote', options.annotationNoteId);
+    }
+    await page.route(targetUrl.toString(), async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'text/html',
@@ -28,7 +40,7 @@ const openMockWatchPage = async (
         });
     });
 
-    await page.goto(`https://www.youtube.com/watch?v=${videoId}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded' });
     await page.locator('video.html5-main-video').waitFor();
     await page.evaluate(({ durationSeconds, currentTimeSeconds }) => {
         const video = document.querySelector<HTMLVideoElement>('video.html5-main-video');
@@ -39,11 +51,13 @@ const openMockWatchPage = async (
             configurable: true,
             get: () => durationSeconds
         });
-        video.currentTime = currentTimeSeconds;
+        if (currentTimeSeconds !== null) {
+            video.currentTime = currentTimeSeconds;
+        }
         video.dispatchEvent(new Event('durationchange'));
     }, {
         durationSeconds: options.durationSeconds ?? 600,
-        currentTimeSeconds: options.currentTimeSeconds ?? 0
+        currentTimeSeconds: options.currentTimeSeconds ?? null
     });
 };
 
@@ -720,6 +734,62 @@ test('content script opens saved annotations directly in the canvas', async ({
         const notesPayload = storage[NOTES_STORAGE_KEY] as Record<string, unknown[]> | undefined;
         return notesPayload?.[videoId]?.length || 0;
     }).toBe(0);
+});
+
+test('content script opens a requested drawing paused at its saved timestamp', async ({
+    page,
+    seedExtensionStorage
+}) => {
+    const videoId = 'e2e-content-requested-annotation-video';
+    await seedExtensionStorage({
+        [NOTES_STORAGE_KEY]: {
+            [videoId]: [
+                {
+                    id: 'requested-drawing-note',
+                    timestamp: 42,
+                    text: 'Requested drawing note',
+                    createdAt: 1,
+                    updatedAt: 1,
+                    annotation: {
+                        version: 1,
+                        scene: { version: '7.4.0', objects: [] },
+                        image: {
+                            dataUrl: PNG_DATA_URL,
+                            width: 1,
+                            height: 1,
+                            generatedAt: 1
+                        },
+                        viewport: {
+                            width: 960,
+                            height: 360
+                        }
+                    }
+                }
+            ]
+        }
+    });
+
+    await openMockWatchPage(page, videoId, {
+        title: 'Requested Annotation Video',
+        durationSeconds: 240,
+        annotationNoteId: 'requested-drawing-note'
+    });
+
+    const root = page.locator('#video-notes-annotation-root');
+    await expect(root).toBeVisible();
+    await expect.poll(async () => page.locator('video.html5-main-video').evaluate((video) => ({
+        currentTime: (video as HTMLVideoElement).currentTime,
+        paused: (video as HTMLVideoElement).paused
+    }))).toEqual({ currentTime: 42, paused: true });
+    expect(new URL(page.url()).searchParams.has('videoNotesNote')).toBe(false);
+
+    await page.locator('video.html5-main-video').evaluate((video) => (
+        (video as HTMLVideoElement).play()
+    ));
+    await expect.poll(async () => page.locator('video.html5-main-video').evaluate((video) => (
+        (video as HTMLVideoElement).paused
+    ))).toBe(false);
+    await expect(root).toBeVisible();
 });
 
 test('content script cancels annotation edits before opening a note from the timeline', async ({

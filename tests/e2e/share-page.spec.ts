@@ -62,15 +62,23 @@ test('static share page shows annotation overlay for selected annotated notes', 
                             container.appendChild(iframe);
                         }
                         window.__playerOptions = options;
+                        window.__playerActions = [];
+                        window.__isVideoPlaying = true;
                         return {
                             seekTo: function seekTo(seconds) {
                                 window.__lastSeekTo = seconds;
+                                window.__playerActions.push('seek:' + seconds);
+                                window.__isVideoPlaying = true;
                             },
                             pauseVideo: function pauseVideo() {
                                 window.__pauseVideoCalled = true;
+                                window.__playerActions.push('pause');
+                                window.__isVideoPlaying = false;
                             },
                             playVideo: function playVideo() {
                                 window.__playVideoCalled = true;
+                                window.__playerActions.push('play');
+                                window.__isVideoPlaying = true;
                             },
                             getCurrentTime: function getCurrentTime() {
                                 return window.__lastSeekTo || 0;
@@ -115,6 +123,12 @@ test('static share page shows annotation overlay for selected annotated notes', 
     await expect.poll(async () => page.evaluate(() =>
         Boolean((window as unknown as { __playVideoCalled?: boolean }).__playVideoCalled)
     )).toBe(false);
+    await expect.poll(async () => page.evaluate(() =>
+        (window as unknown as { __playerActions?: string[] }).__playerActions || []
+    )).toEqual(['seek:12', 'pause']);
+    await expect.poll(async () => page.evaluate(() =>
+        Boolean((window as unknown as { __isVideoPlaying?: boolean }).__isVideoPlaying)
+    )).toBe(false);
 
     await page.evaluate(() => {
         const globalState = window as unknown as {
@@ -127,6 +141,9 @@ test('static share page shows annotation overlay for selected annotated notes', 
     await page.getByText('Annotated shared note').click();
     await expect(overlay).toBeVisible();
 
+    await page.evaluate(() => {
+        (window as unknown as { __playerActions: string[] }).__playerActions = [];
+    });
     await page.getByText('Plain shared note').click();
     await expect(overlay).toBeHidden();
     await expect.poll(async () => page.evaluate(() =>
@@ -135,4 +152,7 @@ test('static share page shows annotation overlay for selected annotated notes', 
     await expect.poll(async () => page.evaluate(() =>
         Boolean((window as unknown as { __playVideoCalled?: boolean }).__playVideoCalled)
     )).toBe(true);
+    await expect.poll(async () => page.evaluate(() =>
+        (window as unknown as { __playerActions?: string[] }).__playerActions || []
+    )).toEqual(['seek:24', 'play']);
 });
