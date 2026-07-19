@@ -120,6 +120,11 @@ const createMockYoutubeWatchPage = ({
                 video.dispatchEvent(new Event('play'));
                 return Promise.resolve();
             };
+            window.addEventListener('keydown', (event) => {
+                if (event.key === ' ' || event.key.toLowerCase() === 'k') {
+                    video.play();
+                }
+            });
             video.dispatchEvent(new Event('loadedmetadata'));
         })();
     </script>

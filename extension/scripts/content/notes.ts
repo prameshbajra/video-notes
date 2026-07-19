@@ -26,6 +26,8 @@ let annotationCallbacksConfigured = false;
 let ensureUiReadyRef: ((videoIdOverride?: string) => boolean) | null = null;
 const persistingCaptureSessions = new Set<number>();
 let persistenceQueue: Promise<void> = Promise.resolve();
+const ANNOTATION_SEEK_TOLERANCE_SECONDS = 0.1;
+const USER_PLAYBACK_INTENT_WINDOW_MS = 1_500;
 
 const persistNotesInOrder = (videoId: string, notes: Note[]): Promise<void> => {
     const operation = persistenceQueue.then(() => persistNotesForVideo(videoId, notes));
@@ -251,15 +253,15 @@ const startAnnotationCapture = ({
     if (!video) {
         return false;
     }
+    const annotationVideo = video;
 
-    state.video = video;
-    if (!video.paused && !video.ended && !state.resumePlaybackVideo) {
-        state.resumePlaybackVideo = video;
+    state.video = annotationVideo;
+    if (!annotationVideo.paused && !annotationVideo.ended && !state.resumePlaybackVideo) {
+        state.resumePlaybackVideo = annotationVideo;
     }
-    video.currentTime = timestamp;
-    video.pause();
 
     state.captureSessionId += 1;
+    const captureSessionId = state.captureSessionId;
     state.tooltipMode = note ? 'edit' : 'create';
     state.captureKind = 'annotation';
     state.pendingTimestamp = timestamp;
@@ -273,11 +275,119 @@ const startAnnotationCapture = ({
     }
     hideNotePreview();
 
+    let pauseGuardActive = true;
+    let userPlaybackIntentExpiresAt = 0;
+    let editorRootObserver: MutationObserver | null = null;
+    function releasePauseGuard(): void {
+        if (!pauseGuardActive) {
+            return;
+        }
+        pauseGuardActive = false;
+        document.removeEventListener('play', enforceAnnotationPause, true);
+        document.removeEventListener('playing', enforceAnnotationPause, true);
+        window.removeEventListener('keydown', handlePlaybackIntentKeydown, true);
+        document.removeEventListener('pointerdown', handlePlaybackIntentPointerdown, true);
+        if (editorRootObserver) {
+            editorRootObserver.disconnect();
+            editorRootObserver = null;
+        }
+    }
+    function markUserPlaybackIntent(): void {
+        userPlaybackIntentExpiresAt = Date.now() + USER_PLAYBACK_INTENT_WINDOW_MS;
+    }
+    function handlePlaybackIntentKeydown(event: KeyboardEvent): void {
+        if (!event.isTrusted || event.repeat || isEditableTarget(event.target)) {
+            return;
+        }
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (target?.closest('button, [role="button"]')) {
+            return;
+        }
+
+        const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+        if (key === ' ' || key === 'k' || key === 'mediaplay' || key === 'mediaplaypause') {
+            markUserPlaybackIntent();
+        }
+    }
+    function handlePlaybackIntentPointerdown(event: PointerEvent): void {
+        if (!event.isTrusted || !(event.target instanceof Element)) {
+            return;
+        }
+
+        if (event.target.closest(
+            'video, .ytp-play-button, .ytp-large-play-button, .ytp-cued-thumbnail-overlay'
+        )) {
+            markUserPlaybackIntent();
+        }
+    }
+    function seekAndPauseAtAnnotation(playbackVideo: HTMLVideoElement = annotationVideo): void {
+        if (!pauseGuardActive || state.captureSessionId !== captureSessionId) {
+            releasePauseGuard();
+            return;
+        }
+
+        try {
+            if (
+                !Number.isFinite(playbackVideo.currentTime) ||
+                Math.abs(playbackVideo.currentTime - timestamp) > ANNOTATION_SEEK_TOLERANCE_SECONDS
+            ) {
+                playbackVideo.currentTime = timestamp;
+            }
+            playbackVideo.pause();
+        } catch {
+            releasePauseGuard();
+        }
+    }
+    function enforceAnnotationPause(event: Event): void {
+        if (state.captureSessionId !== captureSessionId) {
+            releasePauseGuard();
+            return;
+        }
+        if (Date.now() <= userPlaybackIntentExpiresAt) {
+            releasePauseGuard();
+            return;
+        }
+        if (event.target instanceof HTMLVideoElement) {
+            seekAndPauseAtAnnotation(event.target);
+        }
+    }
+
+    document.addEventListener('play', enforceAnnotationPause, true);
+    document.addEventListener('playing', enforceAnnotationPause, true);
+    window.addEventListener('keydown', handlePlaybackIntentKeydown, true);
+    document.addEventListener('pointerdown', handlePlaybackIntentPointerdown, true);
+    seekAndPauseAtAnnotation();
+
     openAnnotationEditor(note?.annotation || null).then((opened) => {
         if (!opened) {
+            releasePauseGuard();
+            if (state.captureSessionId === captureSessionId) {
+                closeTooltip();
+            }
+            return;
+        }
+        if (state.captureSessionId !== captureSessionId) {
+            releasePauseGuard();
+            return;
+        }
+
+        seekAndPauseAtAnnotation();
+        const editorRoot = document.getElementById('video-notes-annotation-root');
+        if (editorRoot && typeof MutationObserver !== 'undefined') {
+            editorRootObserver = new MutationObserver(() => {
+                if (!editorRoot.isConnected) {
+                    releasePauseGuard();
+                }
+            });
+            editorRootObserver.observe(editorRoot.parentElement || document.body, { childList: true });
+        }
+    }).catch(() => {
+        releasePauseGuard();
+        if (state.captureSessionId === captureSessionId) {
             closeTooltip();
         }
-    }).catch(() => closeTooltip());
+    });
     return true;
 };
 

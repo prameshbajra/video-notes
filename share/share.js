@@ -212,6 +212,7 @@
         let activeAnnotationTimestamp = null;
         let activeAnnotationNote = null;
         let overlayWatchTimer = null;
+        let annotationPausePending = false;
 
         function positionAnnotationOverlay() {
             if (!activeAnnotationNote || !activeAnnotationNote.annotation) {
@@ -248,6 +249,7 @@
         }
 
         function clearAnnotationOverlay() {
+            annotationPausePending = false;
             annotationOverlay.hidden = true;
             annotationOverlay.removeAttribute('src');
             hideAnnotationButton.hidden = true;
@@ -266,6 +268,7 @@
 
             overlayWatchTimer = window.setInterval(() => {
                 if (
+                    annotationPausePending ||
                     activeAnnotationTimestamp === null ||
                     !player ||
                     typeof player.getCurrentTime !== 'function'
@@ -282,8 +285,36 @@
 
         hideAnnotationButton.addEventListener('click', clearAnnotationOverlay);
 
-        // Init YouTube player. Playback always dismisses a point-in-time drawing.
-        initPlayer(data.videoId, clearAnnotationOverlay);
+        function handlePlayerStateChange(playerState) {
+            const playerStates = window.YT && window.YT.PlayerState
+                ? window.YT.PlayerState
+                : {};
+            const playingState = typeof playerStates.PLAYING === 'number' ? playerStates.PLAYING : 1;
+            const pausedState = typeof playerStates.PAUSED === 'number' ? playerStates.PAUSED : 2;
+            const bufferingState = typeof playerStates.BUFFERING === 'number' ? playerStates.BUFFERING : 3;
+
+            if (annotationPausePending) {
+                if (playerState === pausedState) {
+                    annotationPausePending = false;
+                    return;
+                }
+                if (
+                    (playerState === playingState || playerState === bufferingState) &&
+                    player &&
+                    typeof player.pauseVideo === 'function'
+                ) {
+                    player.pauseVideo();
+                    return;
+                }
+            }
+
+            if (playerState === playingState) {
+                clearAnnotationOverlay();
+            }
+        }
+
+        // Init YouTube player. Playback after a settled annotation dismisses its drawing.
+        initPlayer(data.videoId, handlePlayerStateChange);
 
         function updateAnnotationOverlay(note, timestamp) {
             const image = getAnnotationImage(note);
@@ -328,14 +359,27 @@
                 const note = sortedNotes[noteIndex];
                 const hasAnnotation = Boolean(getAnnotationImage(note));
                 clearAnnotationOverlay();
-                player.seekTo(ts, true);
                 if (hasAnnotation) {
+                    const playerStates = window.YT && window.YT.PlayerState
+                        ? window.YT.PlayerState
+                        : {};
+                    const pausedState = typeof playerStates.PAUSED === 'number'
+                        ? playerStates.PAUSED
+                        : 2;
+                    const currentPlayerState = typeof player.getPlayerState === 'function'
+                        ? player.getPlayerState()
+                        : null;
+                    annotationPausePending = currentPlayerState !== pausedState;
+                    updateAnnotationOverlay(note, ts);
+                    player.seekTo(ts, true);
                     if (typeof player.pauseVideo === 'function') {
                         player.pauseVideo();
                     }
-                    updateAnnotationOverlay(note, ts);
-                } else if (typeof player.playVideo === 'function') {
-                    player.playVideo();
+                } else {
+                    player.seekTo(ts, true);
+                    if (typeof player.playVideo === 'function') {
+                        player.playVideo();
+                    }
                 }
 
                 // Highlight active
@@ -360,12 +404,12 @@
         });
     }
 
-    function initPlayer(videoId, onPlayback) {
+    function initPlayer(videoId, onStateChange) {
         if (window.YT && window.YT.Player) {
-            createPlayer(videoId, onPlayback);
+            createPlayer(videoId, onStateChange);
         } else {
             window.onYouTubeIframeAPIReady = function () {
-                createPlayer(videoId, onPlayback);
+                createPlayer(videoId, onStateChange);
             };
             const tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
@@ -373,7 +417,7 @@
         }
     }
 
-    function createPlayer(videoId, onPlayback) {
+    function createPlayer(videoId, onStateChange) {
         player = new window.YT.Player('yt-player', {
             videoId: videoId,
             playerVars: {
@@ -383,11 +427,8 @@
             },
             events: {
                 onStateChange: function (event) {
-                    const playingState = window.YT && window.YT.PlayerState
-                        ? window.YT.PlayerState.PLAYING
-                        : 1;
-                    if (event && event.data === playingState) {
-                        onPlayback();
+                    if (event) {
+                        onStateChange(event.data);
                     }
                 }
             }

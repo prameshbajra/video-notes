@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { CDPSession, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { createMockYoutubeWatchPage } from './mock-youtube';
 
@@ -86,6 +86,23 @@ const drawRectangleAnnotation = async (
 };
 
 const delayContentStorageWrites = async (page: Page, delayMilliseconds: number): Promise<void> => {
+    const { contextId, session } = await getContentScriptExecutionContext(page);
+
+    await session.send('Runtime.evaluate', {
+        contextId,
+        expression: `(() => {
+            const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+            chrome.storage.local.set = (items, callback) => {
+                window.setTimeout(() => originalSet(items, callback), ${delayMilliseconds});
+            };
+        })()`
+    });
+};
+
+const getContentScriptExecutionContext = async (page: Page): Promise<{
+    contextId: number;
+    session: CDPSession;
+}> => {
     const session = await page.context().newCDPSession(page);
     const contentContextId = new Promise<number>((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Content script execution context not found')), 5_000);
@@ -99,15 +116,7 @@ const delayContentStorageWrites = async (page: Page, delayMilliseconds: number):
 
     await session.send('Runtime.enable');
     const contextId = await contentContextId;
-    await session.send('Runtime.evaluate', {
-        contextId,
-        expression: `(() => {
-            const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
-            chrome.storage.local.set = (items, callback) => {
-                window.setTimeout(() => originalSet(items, callback), ${delayMilliseconds});
-            };
-        })()`
-    });
+    return { contextId, session };
 };
 
 test.beforeEach(async ({ clearExtensionStorage }) => {
@@ -783,13 +792,146 @@ test('content script opens a requested drawing paused at its saved timestamp', a
     }))).toEqual({ currentTime: 42, paused: true });
     expect(new URL(page.url()).searchParams.has('videoNotesNote')).toBe(false);
 
-    await page.locator('video.html5-main-video').evaluate((video) => (
-        (video as HTMLVideoElement).play()
-    ));
+    await page.keyboard.press('Space');
     await expect.poll(async () => page.locator('video.html5-main-video').evaluate((video) => (
         (video as HTMLVideoElement).paused
     ))).toBe(false);
     await expect(root).toBeVisible();
+});
+
+test('content script re-pauses playback that starts while a requested drawing settles', async ({
+    page,
+    seedExtensionStorage
+}) => {
+    const videoId = 'e2e-content-requested-annotation-race-video';
+    await seedExtensionStorage({
+        [NOTES_STORAGE_KEY]: {
+            [videoId]: [
+                {
+                    id: 'requested-race-drawing-note',
+                    timestamp: 42,
+                    text: 'Requested drawing with delayed playback',
+                    createdAt: 1,
+                    updatedAt: 1,
+                    annotation: {
+                        version: 1,
+                        scene: { version: '7.4.0', objects: [] },
+                        image: {
+                            dataUrl: PNG_DATA_URL,
+                            width: 1,
+                            height: 1,
+                            generatedAt: 1
+                        },
+                        viewport: {
+                            width: 960,
+                            height: 360
+                        }
+                    }
+                }
+            ]
+        }
+    });
+
+    await openMockWatchPage(page, videoId, {
+        title: 'Requested Annotation Playback Race Video',
+        durationSeconds: 240
+    });
+    await expect(page.locator('[data-note-id="requested-race-drawing-note"]')).toBeVisible();
+
+    const { contextId, session } = await getContentScriptExecutionContext(page);
+    try {
+        await session.send('Runtime.evaluate', {
+            contextId,
+            expression: `(() => {
+                const video = document.querySelector('video.html5-main-video');
+                let activeVideo = video;
+                let isPaused = false;
+                let pauseCount = 0;
+                Object.defineProperty(video, 'paused', {
+                    configurable: true,
+                    get: () => isPaused
+                });
+                Object.defineProperty(video, 'ended', {
+                    configurable: true,
+                    get: () => false
+                });
+                const syncState = () => {
+                    activeVideo.dataset.testPaused = String(isPaused);
+                    activeVideo.dataset.testPauseCount = String(pauseCount);
+                };
+                const pauseVideo = () => {
+                    isPaused = true;
+                    pauseCount += 1;
+                    syncState();
+                    activeVideo.dispatchEvent(new Event('pause'));
+                };
+                const playVideo = () => {
+                    isPaused = false;
+                    syncState();
+                    activeVideo.dispatchEvent(new Event('play'));
+                    activeVideo.dispatchEvent(new Event('playing'));
+                    return Promise.resolve();
+                };
+                video.pause = pauseVideo;
+                video.play = playVideo;
+                window.addEventListener('keydown', (event) => {
+                    if (event.key === ' ' || event.key.toLowerCase() === 'k') {
+                        activeVideo.play();
+                    }
+                });
+                const observer = new MutationObserver(() => {
+                    if (!document.getElementById('video-notes-annotation-root')) {
+                        return;
+                    }
+                    observer.disconnect();
+                    window.setTimeout(() => {
+                        const replacementVideo = video.cloneNode();
+                        activeVideo = replacementVideo;
+                        Object.defineProperty(replacementVideo, 'paused', {
+                            configurable: true,
+                            get: () => isPaused
+                        });
+                        Object.defineProperty(replacementVideo, 'ended', {
+                            configurable: true,
+                            get: () => false
+                        });
+                        replacementVideo.pause = pauseVideo;
+                        replacementVideo.play = playVideo;
+                        isPaused = false;
+                        video.replaceWith(replacementVideo);
+                        replacementVideo.dataset.testDelayedPlaybackFired = 'true';
+                        syncState();
+                        replacementVideo.dispatchEvent(new Event('play'));
+                        replacementVideo.dispatchEvent(new Event('playing'));
+                    }, 2_000);
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                syncState();
+            })()`
+        });
+
+        await page.evaluate((noteId) => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('videoNotesNote', noteId);
+            window.history.pushState(window.history.state, '', url.toString());
+            window.dispatchEvent(new Event('yt-navigate-finish'));
+        }, 'requested-race-drawing-note');
+
+        const video = page.locator('video.html5-main-video');
+        await expect(page.locator('#video-notes-annotation-root')).toBeVisible();
+        await expect(video).toHaveAttribute('data-test-delayed-playback-fired', 'true');
+        await expect.poll(async () => Number(await video.getAttribute('data-test-pause-count'))).toBeGreaterThan(1);
+        await expect(video).toHaveAttribute('data-test-paused', 'true');
+        await expect.poll(async () => video.evaluate((element) => (
+            (element as HTMLVideoElement).currentTime
+        ))).toBe(42);
+        expect(new URL(page.url()).searchParams.has('videoNotesNote')).toBe(false);
+
+        await page.keyboard.press('Space');
+        await expect(video).toHaveAttribute('data-test-paused', 'false');
+    } finally {
+        await session.detach();
+    }
 });
 
 test('content script cancels annotation edits before opening a note from the timeline', async ({

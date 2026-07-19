@@ -157,7 +157,7 @@ test('notes page marks drawing-note navigation for the YouTube content script', 
     expect(openedUrls).toHaveLength(2);
     const drawingUrl = new URL(openedUrls[0] || 'https://www.youtube.com/watch');
     expect(drawingUrl.searchParams.get('v')).toBe(videoId);
-    expect(drawingUrl.searchParams.get('t')).toBe('42');
+    expect(drawingUrl.searchParams.has('t')).toBe(false);
     expect(drawingUrl.searchParams.get('videoNotesNote')).toBe('drawing-note');
 
     const plainUrl = new URL(openedUrls[1] || 'https://www.youtube.com/watch');

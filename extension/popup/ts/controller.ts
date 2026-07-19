@@ -564,7 +564,7 @@ const openNote = (videoId: string, note: NormalizedNote): void => {
     const seconds = Math.max(0, Math.floor(Number(note.timestamp)));
     const targetUrl = new URL('https://www.youtube.com/watch');
     targetUrl.searchParams.set('v', videoId);
-    if (seconds > 0) {
+    if (seconds > 0 && !note.annotation) {
         targetUrl.searchParams.set('t', seconds.toString());
     }
     if (note.annotation) {
