@@ -7,7 +7,7 @@ interface RenderHandlers {
     onDeleteVideo: (videoId: string) => void;
     onExportVideo: (video: VideoListItem) => void;
     onShareVideo: (video: VideoListItem) => void;
-    onOpenNote: (videoId: string, timestampSeconds: number | string) => void;
+    onOpenNote: (videoId: string, note: NormalizedNote) => void;
     onShowMoreNotes: (videoId: string) => void;
     onShowMoreVideos: () => void;
     onToggleVideo: (videoId: string) => void;
@@ -388,7 +388,7 @@ const render = (handlers: RenderHandlers): void => {
                 noteButton.dataset.timestamp = note.timestamp.toString();
                 noteButton.dataset.noteKey = note.dedupKey;
 
-                noteButton.addEventListener('click', () => handlers.onOpenNote(video.videoId, note.timestamp));
+                noteButton.addEventListener('click', () => handlers.onOpenNote(video.videoId, note));
 
                 const timestampSpan = document.createElement('span');
                 timestampSpan.className = 'note-button__timestamp';

@@ -73,6 +73,7 @@ import {
 import { getOrGenerateDeck } from './flashcard-deck.js';
 import { refreshFlashcardsPanel } from './flashcards.js';
 import { assertSharePayloadIsValid, getShareFailureMessage } from '../../share-payload.js';
+import { ANNOTATION_NOTE_QUERY_PARAM } from '../../note-navigation.js';
 
 let templateDebounceTimer: number | null = null;
 let searchDebounceTimer: number | null = null;
@@ -555,16 +556,19 @@ const toggleVideoExpansion = (videoId: string): void => {
     render(renderHandlers);
 };
 
-const openNote = (videoId: string, timestampSeconds: number | string): void => {
+const openNote = (videoId: string, note: NormalizedNote): void => {
     if (!videoId) {
         return;
     }
 
-    const seconds = Math.max(0, Math.floor(Number(timestampSeconds)));
+    const seconds = Math.max(0, Math.floor(Number(note.timestamp)));
     const targetUrl = new URL('https://www.youtube.com/watch');
     targetUrl.searchParams.set('v', videoId);
-    if (seconds > 0) {
+    if (seconds > 0 && !note.annotation) {
         targetUrl.searchParams.set('t', seconds.toString());
+    }
+    if (note.annotation) {
+        targetUrl.searchParams.set(ANNOTATION_NOTE_QUERY_PARAM, note.id);
     }
 
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
@@ -797,8 +801,8 @@ const renderHandlers: RenderHandlers = {
     onShareVideo: (video: VideoListItem): void => {
         shareVideoNotes(video).catch(() => { });
     },
-    onOpenNote: (videoId: string, timestampSeconds: number | string): void => {
-        openNote(videoId, timestampSeconds);
+    onOpenNote: (videoId: string, note: NormalizedNote): void => {
+        openNote(videoId, note);
     },
     onShowMoreNotes: (videoId: string): void => {
         showMoreNotes(videoId);
